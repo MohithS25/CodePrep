@@ -1,0 +1,599 @@
+
+Each byte in memory is identified by an address. Each address is an 8 byte value in 64 bit machine. See in the diagram below.
+0x007FF017 is an identifier for that single byte of memory. It is holding the value 0x00
+Similarly, 0x007FF012 is another such address of a byte in memory that holds the value 0x7F
+
+So the smallest location in memory is a byte. Each of it is identified by an address.
+
+A data-type could be multiple bytes.
+
+int = 4 bytes
+char = 1 byte
+user defined data type like a class could be 100 bytes.
+pointer = 8 bytes - why ? because a pointer is a data type that needs to hold an address. Each address is identified by an 8 byte value. So the pointer needs to be 8 bytes.
+
+Let's see how this looks like in memory.
+
+
+Example:
+
+int age = 25;
+int* ptr = &age;
+
+The Object : A 4-byte int variable named 'age' containing the value 25. It starts at the specific mock address 0x7FF001.
+
+The Pointer : An 8-byte variable named 'ptr' located at address 0x7FF010. Crucially, the value stored inside ptr is the address of age (0x7FF001).
+
+See PHYSICAL RAM LAYOUT below to see how this would look like in memory. 
+
+
+THE POINTER (ptr)                         THE OBJECT (age)
+    
+     Holds an 8-byte address                  Holds a 4-byte integer
+    .-----------------------.                .-----------------------.
+    |      0x007FF001       |                |          25           |
+    '-----------------------'                '-----------------------'
+                |                                        ^
+                |                                        |
+                '------------------ POINTS TO -----------'
+                                (The value inside ptr 
+                                 is age's address)
+
+
+
+========================== PHYSICAL RAM LAYOUT ==========================
+
+  RAM Address       Variable Name    Byte Value      What it means
+ ------------       -------------    ----------     ---------------
+  0x007FF017 \                       [ 0x00 ]                
+  0x007FF016  \                      [ 0x00 ]        
+  0x007FF015   \                     [ 0x00 ]        
+  0x007FF014    \                    [ 0x00 ]        The 8-byte pointer 'ptr'
+  0x007FF013     >       ptr         [ 0x00 ]        lives here. 
+  0x007FF012    /                    [ 0x7F ]        
+  0x007FF011   /                     [ 0xF0 ]        Its value holds the numbers
+  0x007FF010  /                      [ 0x01 ] <---   0x007FF001.
+ ------------------------------------------------------------------------
+  [... RAM ...]
+ ------------------------------------------------------------------------
+=========================================================================
+  0x007FF004                         [ 0x00 ] \
+  0x007FF003                         [ 0x00 ]  \    The 4-byte integer 'age'
+  0x007FF002                         [ 0x00 ]  /    occupies this block.
+  0x007FF001 <-- Base of age ------> [ 0x19 ] /     Its value is 25 (0x19).
+=========================================================================
+
+
+
+================================================================================
+STRUCT / CLASS EXAMPLE
+================================================================================
+
+A struct is a group of fields packed together contiguously in memory.
+
+struct Point {
+    int x;   // 4 bytes
+    int y;   // 4 bytes
+};            // Total: 8 bytes
+
+Point p = {10, 20};
+Point* ptr = &p;
+
+The Object : An 8-byte struct 'p' starting at address 0x7FF020.
+             - p.x (int, 4 bytes) lives at 0x7FF020, value = 10 (0x0A)
+             - p.y (int, 4 bytes) lives at 0x7FF024, value = 20 (0x14)
+
+The Pointer : An 8-byte pointer 'ptr' at address 0x7FF030.
+              Its value is the base address of the struct: 0x007FF020.
+
+
+THE POINTER (ptr)                         THE OBJECT (p)
+
+     Holds an 8-byte address                  Holds an 8-byte struct
+    .-----------------------.                .-----------.-----------.
+    |      0x007FF020       |                |  x = 10   |  y = 20  |
+    '-----------------------'                '-----------'-----------'
+                |                                 ^
+                |                                 |
+                '------------- POINTS TO ---------'
+                             (ptr's value is p's base address,
+                              which is also the address of p.x)
+
+
+========================== PHYSICAL RAM LAYOUT ==========================
+
+  RAM Address       Variable Name    Byte Value      What it means
+ ------------       -------------    ----------     ---------------
+  0x007FF037 \                       [ 0x00 ]
+  0x007FF036  \                      [ 0x00 ]
+  0x007FF035   \                     [ 0x00 ]
+  0x007FF034    \                    [ 0x00 ]        The 8-byte pointer 'ptr'
+  0x007FF033     >       ptr         [ 0x00 ]        lives here.
+  0x007FF032    /                    [ 0x7F ]
+  0x007FF031   /                     [ 0xF0 ]        Its value holds 0x007FF020
+  0x007FF030  /                      [ 0x20 ] <---   (base address of p).
+ ------------------------------------------------------------------------
+  [... RAM ...]
+ ------------------------------------------------------------------------
+=========================================================================
+  0x007FF027                         [ 0x00 ] \
+  0x007FF026                         [ 0x00 ]  \    p.y (int, 4 bytes)
+  0x007FF025                         [ 0x00 ]  /    value = 20 (0x14)
+  0x007FF024 <-- p.y starts -------> [ 0x14 ] /
+ -------------------------------------------------------------------------
+  0x007FF023                         [ 0x00 ] \
+  0x007FF022                         [ 0x00 ]  \    p.x (int, 4 bytes)
+  0x007FF021                         [ 0x00 ]  /    value = 10 (0x0A)
+  0x007FF020 <-- Base of p --------> [ 0x0A ] /     ptr points here.
+=========================================================================
+
+Key insight: ptr points to the base of the struct, which is the same address
+as the first field (p.x). The fields are laid out sequentially in memory with
+no gaps (in this case — alignment/padding can add gaps in other structs).
+
+
+================================================================================
+FUNCTION POINTER EXAMPLE
+================================================================================
+
+A function pointer holds the address of a function's machine code in the
+text (code) segment, rather than the address of a data variable.
+
+int add(int a, int b) {
+    return a + b;
+}
+
+int (*funcPtr)(int, int) = &add;
+
+The Function : 'add' lives in the text segment starting at address 0x004010A0.
+               That is where the CPU begins executing when the function is called.
+
+The Pointer  : An 8-byte variable 'funcPtr' at address 0x7FF040.
+               Its value is the address of add's first instruction: 0x004010A0.
+
+
+THE POINTER (funcPtr)                     THE FUNCTION (add) — in text segment
+
+     Holds an 8-byte address                  Machine code bytes (instructions)
+    .-----------------------.                .----------------------------------.
+    |      0x004010A0       |                | 0x55 | 0x48 | 0x89 | 0xE5 | ... |
+    '-----------------------'                '----------------------------------'
+                |                                        ^
+                |                                        |
+                '------------- POINTS TO ----------------'
+                             (funcPtr's value is the address of
+                              add's first machine instruction)
+
+
+========================== PHYSICAL RAM LAYOUT ==========================
+
+  RAM Address       Variable Name    Byte Value      What it means
+ ------------       -------------    ----------     ---------------
+  0x007FF047 \                       [ 0x00 ]
+  0x007FF046  \                      [ 0x00 ]
+  0x007FF045   \                     [ 0x00 ]
+  0x007FF044    \                    [ 0x00 ]        The 8-byte 'funcPtr'
+  0x007FF043     >     funcPtr       [ 0x00 ]        lives here (on the stack).
+  0x007FF042    /                    [ 0x40 ]
+  0x007FF041   /                     [ 0x10 ]        Its value holds 0x004010A0
+  0x007FF040  /                      [ 0xA0 ] <---   (address of add's code).
+ ------------------------------------------------------------------------
+  [... RAM ...]    (text segment is far away in a lower memory region)
+ ------------------------------------------------------------------------
+=========================================================================
+  TEXT / CODE SEGMENT  (read-only, executable)
+=========================================================================
+  0x004010A4                         [ 0x89 ]  \
+  0x004010A3                         [ 0xE5 ]   \   Machine code bytes of
+  0x004010A2                         [ 0x89 ]    \  the 'add' function.
+  0x004010A1                         [ 0x48 ]    /  funcPtr points to the
+  0x004010A0 <-- add starts -------> [ 0x55 ] --/   first byte (0x55).
+                                                     0x55       = PUSH RBP
+                                                     0x48 0x89 0xE5 = MOV RBP, RSP
+=========================================================================
+
+Key insight: A function pointer works exactly like a data pointer — it is an
+8-byte variable holding an address. The only difference is WHERE it points:
+into the read-only text segment (executable code) instead of the data segment
+or stack. Calling funcPtr(1, 2) dereferences the pointer and jumps the CPU to
+that address to begin executing the function's instructions.
+
+
+================================================================================
+HOW SOURCE CODE BECOMES MACHINE CODE BYTES
+================================================================================
+
+The pipeline:
+
+    int add(int a, int b)          C source
+          |
+          v
+       compiler (clang/gcc)
+          |
+          v
+    push   rbp                     Assembly (human-readable mnemonics)
+    mov    rbp, rsp
+    mov    [rbp-4], edi
+    ...
+          |
+          v
+       assembler
+          |
+          v
+    0x55 0x48 0x89 0xE5 ...        Machine code bytes (what lives in the .text segment)
+          |
+          v
+       CPU reads and executes byte by byte
+
+
+Full unoptimized disassembly of add(int a, int b):
+
+  Address       Machine Bytes          Assembly Instruction
+  ----------    -------------------    ----------------------------
+  0x004010A0    55                     push   rbp
+  0x004010A1    48 89 E5               mov    rbp, rsp
+  0x004010A4    89 7D FC               mov    DWORD PTR [rbp-4], edi
+  0x004010A7    89 75 F8               mov    DWORD PTR [rbp-8], esi
+  0x004010AA    8B 45 FC               mov    eax, DWORD PTR [rbp-4]
+  0x004010AD    03 45 F8               add    eax, DWORD PTR [rbp-8]
+  0x004010B0    5D                     pop    rbp
+  0x004010B1    C3                     ret
+
+  (edi holds argument 'a', esi holds argument 'b' — System V x86-64 calling convention)
+  (return value is left in eax)
+
+
+========================== HOW EACH INSTRUCTION IS ENCODED ==========================
+
+Every x86-64 instruction follows this structure (most fields are optional):
+
+    .-----------.---------.---------.---------.------------.-----------.
+    | REX prefix|  Opcode | ModRM   |   SIB   |  Disp      |  Imm      |
+    | (optional)|  1-3B   | (opt)   |  (opt)  |  (opt)     |  (opt)    |
+    '-----------'---------'---------'---------'------------'-----------'
+
+
+---- INSTRUCTION 1: push rbp  →  0x55 ----
+
+    Just a single opcode byte. No ModRM needed.
+
+    0x50 is the base opcode for PUSH register.
+    RBP is register number 5.
+    0x50 + 5 = 0x55.
+
+    Register encoding (for PUSH/POP family):
+    RAX=0  RCX=1  RDX=2  RBX=3  RSP=4  RBP=5  RSI=6  RDI=7
+
+    So:  push rax = 0x50,  push rbx = 0x53,  push rbp = 0x55
+
+
+---- INSTRUCTION 2: mov rbp, rsp  →  0x48 0x89 0xE5 ----
+
+    Three bytes: REX prefix, opcode, ModRM byte.
+
+    Byte 1 — REX prefix: 0x48
+    .-------.---.---.---.---.
+    | 0100  | W | R | X | B |     Fixed pattern 0100, then 4 flag bits
+    '-------'---'---'---'---'
+      bits:   7   2   1   0
+
+        W=1 → 64-bit operand size (without this, it defaults to 32-bit)
+        R=0 → no extension to 'reg' field of ModRM
+        X=0 → no extension to SIB index
+        B=0 → no extension to r/m field of ModRM
+
+        0100 1000 = 0x48
+
+
+    Byte 2 — Opcode: 0x89
+        0x89 = MOV r/m, r   (copy FROM a register INTO r/m destination)
+
+
+    Byte 3 — ModRM byte: 0xE5
+    .-----.-----.-----.
+    | mod | reg | r/m |     3 fields packed into 1 byte
+    | 2b  | 3b  | 3b  |
+    '-----'-----'-----'
+
+        mod = 11  → both operands are registers (no memory access)
+        reg = 100 → RSP (source register, register #4)
+        r/m = 101 → RBP (destination register, register #5)
+
+        11 100 101 = 1110 0101 = 0xE5
+
+    Putting it together:
+        REX.W says "this is a 64-bit operation"
+        Opcode 0x89 says "move the register named in 'reg' into the location named in 'r/m'"
+        ModRM says "reg=RSP, r/m=RBP, both are registers"
+        → CPU copies RSP into RBP
+
+
+---- INSTRUCTION 3: mov DWORD PTR [rbp-4], edi  →  0x89 0x7D 0xFC ----
+
+    Byte 1 — Opcode: 0x89
+        Same opcode: MOV r/m, r  (no REX prefix — edi is 32-bit, that's fine)
+
+    Byte 2 — ModRM byte: 0x7D
+        mod = 01  → r/m is a memory address with an 8-bit (1 byte) displacement
+        reg = 111 → EDI (source, register #7)
+        r/m = 101 → RBP (base address register)
+
+        01 111 101 = 0111 1101 = 0x7D
+
+    Byte 3 — Displacement: 0xFC
+        0xFC = -4 in signed 8-bit two's complement
+        (1111 1100 → flip bits → 0000 0011 = 3 → add 1 → 4 → so it's -4)
+
+        This means: address = RBP + (-4) = RBP - 4
+
+    → CPU stores EDI (argument 'a') into the memory 4 bytes below RBP
+
+
+---- INSTRUCTION 4: ret  →  0xC3 ----
+
+    Single opcode byte. Pops the return address from the stack and
+    jumps to it. No operands, no ModRM, nothing extra needed.
+
+
+========================== FULL TEXT SEGMENT LAYOUT ==========================
+
+  Address       Bytes                 Assembly
+  ----------    --------------------  ----------------------------------
+  0x004010A0    [ 55 ]                push   rbp
+  0x004010A1    [ 48 ] [ 89 ] [ E5 ] mov    rbp, rsp
+  0x004010A4    [ 89 ] [ 7D ] [ FC ] mov    [rbp-4], edi
+  0x004010A7    [ 89 ] [ 75 ] [ F8 ] mov    [rbp-8], esi
+  0x004010AA    [ 8B ] [ 45 ] [ FC ] mov    eax, [rbp-4]
+  0x004010AD    [ 03 ] [ 45 ] [ F8 ] add    eax, [rbp-8]
+  0x004010B0    [ 5D ]                pop    rbp
+  0x004010B1    [ C3 ]                ret
+
+  funcPtr = 0x004010A0 points at the first byte [ 55 ].
+  When called, the CPU reads bytes forward from that address, decoding
+  and executing one instruction at a time until it hits RET (0xC3).
+
+
+================================================================================
+THE CALL STACK
+================================================================================
+
+WHEN IS THE STACK CREATED?
+
+When the OS launches a process (before main() runs), it:
+  1. Allocates a fixed region of virtual memory for the stack (typically 8MB)
+  2. Sets the RSP register to the TOP of that region (high address)
+  3. The stack grows DOWNWARD — toward lower addresses — as functions are called
+
+There is one stack per thread, and it exists for the lifetime of that thread.
+The heap, text segment, and stack are all separate regions of virtual memory:
+
+    Virtual Memory Map of a Process
+    .---------------------------------. 0xFFFFFFFFFFFFFFFF (high)
+    |       kernel space              |
+    .---------------------------------. ~0x00007FFFFFFFFFFF
+    |                                 |
+    |       STACK                     |  ← RSP starts here, grows downward
+    |       (grows downward ↓)        |
+    |                                 |
+    .---------------------------------
+    |                                 |
+    |       HEAP                      |  ← malloc/new allocates here, grows upward
+    |       (grows upward ↑)          |
+    |                                 |
+    .---------------------------------
+    |    BSS  (uninit globals)        |
+    .---------------------------------
+    |    DATA (init globals/statics)  |
+    .---------------------------------
+    |    TEXT (machine code)          |  ← funcPtr points here (0x004010A0)
+    .---------------------------------. ~0x0000000000400000 (low)
+
+The 'age', 'p', and 'funcPtr' variables from our earlier examples all live
+on the stack. The add() machine code lives in the TEXT segment.
+
+
+WHAT IS A STACK FRAME?
+
+Every function call carves out a slice of the stack called a stack frame.
+It holds everything that function needs to run:
+  - The return address (where to jump when the function finishes)
+  - The caller's saved RBP (so we can restore it on return)
+  - Local variables and copies of arguments
+
+Two registers manage the stack at all times:
+  RSP — Stack Pointer. Always points to the current TOP of the stack.
+  RBP — Base Pointer.  Anchors the current frame. Locals are RBP±offset.
+
+
+STEP-BY-STEP: CALLING add(10, 20) FROM main()
+
+  Step 1 — main() puts arguments in registers (System V calling convention):
+            EDI = 10  (first argument)
+            ESI = 20  (second argument)
+
+  Step 2 — CALL instruction executes:
+            Pushes the return address (next instruction in main) onto the stack.
+            RSP decreases by 8. Jumps to 0x004010A0.
+
+  Step 3 — PUSH RBP  (0x55):
+            Saves main()'s RBP onto the stack so we can restore it later.
+            RSP decreases by 8.
+
+  Step 4 — MOV RBP, RSP  (0x48 0x89 0xE5):
+            RBP now points to the same place as RSP.
+            This anchors add()'s stack frame.
+
+  Step 5 — MOV [RBP-4], EDI  (0x89 0x7D 0xFC):
+            Writes 10 onto the stack 4 bytes below RBP.
+
+  Step 6 — MOV [RBP-8], ESI  (0x89 0x75 0xF8):
+            Writes 20 onto the stack 8 bytes below RBP.
+
+  Step 7 — Computes result in EAX, then:
+            POP RBP  — restores main()'s RBP.
+            RET      — pops the return address and jumps back into main().
+            RSP is now back to where it was before the call.
+
+
+PHYSICAL RAM LAYOUT — THE STACK DURING add(10, 20)
+
+  (Addresses shown are illustrative — actual values depend on the OS)
+
+  RAM Address       Contents              What it means
+  -----------       --------              -------------
+
+  Higher addresses  (main()'s frame above here — its locals, its own saved RBP, etc.)
+
+ ==========================================================================
+  0x7FFEE8          [ ... ]  \
+  ...                         >  main()'s local variables and frame data
+  0x7FFED0          [ ... ]  /
+ --------------------------------------------------------------------------
+  0x7FFEC8          return address         CALL pushed this.
+  (8 bytes)         (addr in main          Points back into main()'s code
+                     after the call)       so RET knows where to go.
+ --------------------------------------------------------------------------
+  0x7FFEC0  <-- RBP points here
+  (8 bytes)         saved RBP of main()    PUSH RBP stored main()'s RBP here.
+                                           POP RBP will restore it on return.
+ --------------------------------------------------------------------------
+  0x7FFEBB          [ 0x00 ] \
+  0x7FFEBA          [ 0x00 ]  \  a = 10    MOV [RBP-4], EDI wrote 10 here.
+  0x7FFEB9          [ 0x00 ]  /  (int)     RBP-4 = 0x7FFEC0 - 4 = 0x7FFEBF
+  0x7FFEBF          [ 0x0A ] /             (little-endian: 0A 00 00 00)
+ --------------------------------------------------------------------------
+  0x7FFEB7          [ 0x00 ] \
+  0x7FFEB6          [ 0x00 ]  \  b = 20    MOV [RBP-8], ESI wrote 20 here.
+  0x7FFEB5          [ 0x00 ]  /  (int)     RBP-8 = 0x7FFEC0 - 8 = 0x7FFEBB
+  0x7FFEB8          [ 0x14 ] /             (little-endian: 14 00 00 00)
+ --------------------------------------------------------------------------
+  0x7FFEB7  <-- RSP points here (current top of stack)
+ ==========================================================================
+
+  Lower addresses   (unused stack space below — available for deeper calls)
+
+
+AFTER RET EXECUTES:
+
+  RSP snaps back up to 0x7FFED0 (back into main's frame).
+  The bytes where a and b were stored are NOT zeroed out — they're just
+  abandoned. If another function is called, its frame will overwrite them.
+
+  This is why reading a local variable after its function returns gives
+  garbage — the memory is still physically there, but the stack has moved on.
+
+
+CONNECTING EVERYTHING:
+
+  Text segment   →  machine code bytes for add() live at 0x004010A0
+                    funcPtr = 0x004010A0 points here
+
+  Stack          →  the variables 'age', 'p', 'funcPtr' from earlier examples
+                    all live here, inside whatever function declared them
+
+  Stack frame    →  the [rbp-4] and [rbp-8] accesses in add()'s disassembly
+                    ARE stack accesses — those offsets land in the grey region
+                    shown above
+
+  Calling conv.  →  arguments arrive in registers (EDI, ESI); the function
+                    then copies them onto the stack if it needs to spill them
+
+
+================================================================================
+IS A STACK FRAME A REAL THING OR A VIRTUAL CONCEPT?
+================================================================================
+
+Short answer: the stack MEMORY is physically real. The "frame" is a
+compiler-generated convention — not a hardware concept.
+
+
+WHAT IS REAL (hardware-enforced):
+
+  The stack memory region
+      Actual physical RAM bytes allocated by the OS at process start.
+      RSP points into it. The bytes are as real as any other memory.
+
+  RSP — the Stack Pointer register
+      The CPU has hardwired awareness of RSP.
+      PUSH, POP, CALL, and RET all automatically read and modify RSP.
+      This is not a convention — it is built into the CPU's instruction set.
+
+      CALL  →  pushes return address, decrements RSP by 8, jumps
+      RET   →  pops return address into RIP, increments RSP by 8, jumps
+      PUSH  →  decrements RSP by 8, writes value
+      POP   →  reads value, increments RSP by 8
+
+
+WHAT IS A CONVENTION (software-enforced, not hardware):
+
+  RBP — the Base Pointer (frame pointer)
+      RBP is just a general-purpose register.
+      The CPU does NOT know or care that it is being used as a frame anchor.
+      The compiler CHOOSES to dedicate RBP to this role by following the
+      System V ABI calling convention.
+
+  The prologue and epilogue
+      push rbp        ← compiler emits this. CPU has no concept of "frame start".
+      mov  rbp, rsp   ← compiler emits this. Just copying one register to another.
+      ...
+      pop  rbp        ← compiler emits this. CPU has no concept of "frame end".
+      ret
+
+  The "frame" boundary itself
+      There is no hardware register, flag, or instruction that says
+      "frame starts here, frame ends here." The boundary only exists
+      because the compiler consistently uses RBP as the anchor and generates
+      code that respects that layout.
+
+
+PROOF: compile with -O2 and the frame disappears
+
+  Unoptimized add():          Optimized add() with -O2:
+
+  push   rbp                  lea    eax, [rdi + rsi]   ← compute a+b directly
+  mov    rbp, rsp             ret                        ← done. 2 instructions.
+  mov    [rbp-4], edi
+  mov    [rbp-8], esi
+  mov    eax, [rbp-4]
+  add    eax, [rbp-8]
+  pop    rbp
+  ret
+
+  With -O2:
+  - No PUSH RBP. No frame pointer. No locals spilled to the stack at all.
+  - The compiler kept 'a' and 'b' in registers (RDI, RSI) the whole time.
+  - RBP is freed up and used as a general-purpose register elsewhere.
+  - The stack is only touched by CALL (return address) and RET.
+
+  The result is identical — 'a + b' is still computed correctly.
+  The "frame" was just scaffolding the compiler erected and tore down.
+
+
+CONSEQUENCE: debuggers depend on frames existing
+
+  Debuggers (lldb, gdb) walk the call stack by following the RBP chain:
+
+      current RBP → points to saved RBP of caller
+                        → points to saved RBP of caller's caller
+                            → ... and so on up to main()
+
+  With -O2 and no frame pointers, this chain is broken. The debugger
+  cannot reliably unwind the call stack. This is why debug builds (-O0)
+  always emit frame pointers, and why -fno-omit-frame-pointer exists
+  as an explicit flag to force them back on in optimized builds
+  (commonly used in profilers like Linux perf and Instruments on macOS).
+
+
+SUMMARY
+
+  .-------------------------------------------------------------------.
+  |  Thing             |  Real or Convention?  |  Enforced by         |
+  |--------------------|-----------------------|----------------------|
+  |  Stack memory      |  Real                 |  OS (at launch)      |
+  |  RSP register      |  Real                 |  CPU (CALL/RET/PUSH) |
+  |  Stack frame       |  Convention           |  Compiler + ABI      |
+  |  RBP as anchor     |  Convention           |  Compiler + ABI      |
+  |  Prologue/epilogue |  Convention           |  Compiler            |
+  '-------------------------------------------------------------------'
+
+

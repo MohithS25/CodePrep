@@ -1,0 +1,91 @@
+Q1. If int* p = arr and arr starts at address 0x200, what address does p + 3 represent and what value does *(p + 3) give you for int arr[5] = {5, 10, 15, 20, 25}?
+p+3 -> represents 0x20C , since 0x200 + (4*3) = 0x200 + 12 = 0x20C
+*(p+3) -> gives value of 20
+  
+Q2. Why do functions that take arrays almost always take a second int size parameter?
+Since when we pass arrays as arguments it decays into a pointer to the first element of the array and the function loses the size of the array, so we need to pass the size of the array as well
+
+Q3. You have int arr[3] = {1, 2, 3}. What is the difference between sizeof(arr) inside main vs inside a function that receives it as int* arr?
+Inside main sizeof(arr) will print 12 since arr is of int type and has 3 values. Inside the function the array decays to a pointer and the sizeof the pointer will be 8 bytes
+
+
+Exercise 1 — Pointer Walk
+Write a function array_sum that takes an array and its size, and returns the sum of all elements. You must use pointer arithmetic — no [] indexing allowed inside the function.
+#include <iostream>
+
+int array_sum(int* arr, int size){                //pointer to arr, size -> args
+    int sum = 0;
+    for(int* p=arr;p<arr+size;p++){               //using p -> arr[0] and until sizeof array, p+1 -> *(arr+1) -> arr[1]
+        sum += *p;
+    }
+    return sum;
+}
+
+int main(){
+    int arr[5] = {10,20,30,40,50};
+    int size = (sizeof(arr)/sizeof(arr[0]));             //total size/sizeof first ele = number of elements
+    std::cout<<array_sum(arr,size)<<std::endl;           //addr of array, size -> args
+
+    return 0;
+    
+}
+
+
+Exercise 2 — Reverse In Place
+Write a function reverse that reverses an array in place using pointers. No second array allowed — do it by swapping elements within the same array.
+
+#include <iostream>
+
+void reverse_array(int* arr, int size){
+    int* p = arr;
+    int* q = arr + (size-1);
+
+    for(int x=0;x<(size/2);x++){
+        int temp = *p;
+        *p = *q;
+        *q = temp;
+        p++;
+        q--;
+    }
+}
+
+int main(){
+    int arr[5] = {1,2,3,4,5};
+    reverse_array(arr,5);
+    for(int i=0; i<5;i++){
+        std::cout<<arr[i]<<" ";
+    }
+
+    return 0;
+}
+
+
+Exercise 3 — Find and Return
+Write a function find that searches an array for a target value and returns a pointer to the first element that matches. If not found, return nullptr. In main, use the returned pointer to print the found value
+
+#include <iostream>
+
+int* find(int* arr,int size, int key){
+    for(int* p=arr;p<arr+size;p++){
+        if(*p == key){
+            return p;
+        }
+    }
+    return nullptr;
+}
+
+int main(){
+    
+    int nums[] = {4,8,15,16,23,42};
+    int* result = find(nums,6,15);
+    if(result != nullptr){
+        std::cout<<"Found: "<<(*result)<<std::endl;
+    }
+    result = find(nums,6,99);
+    if(result == nullptr)
+    {
+        std::cout<<"Not found"<<std::endl;
+    }
+
+    return 0;
+}

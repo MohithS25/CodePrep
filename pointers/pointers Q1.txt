@@ -1,0 +1,63 @@
+Q1. In your own words: what is the difference between p and *p?
+p is a variable and *p is a pointer 
+
+  Q2. If int* p = &x, and you then do *p = 99, what happens to x and why?
+  value of x = 99, since we are dereferencing x through *p and changing the value stored at x. p is a pointer to an integer and stores the address of x
+
+  Q3. Why do we need to specify the type when declaring a pointer — why not just have a generic "address" type?
+  when we need to dereference we need to tell the cpu how many bytes of memory to read
+  pointer arithmetic -> compiler needs to know how many bytes forward to move
+
+  Q4. You have this code:
+  int* p = nullptr;
+  *p = 42;  
+  What happens and why?
+  throws an error since we are dereferencing a nullptr. p is a nullptr and is not pointing to any memory address and hence we can't change the value of the address that doesn't exist
+
+  Q5. Looking at this:
+  void foo(int* p) {
+      *p = 100;
+  }   
+  int main() {
+      int a = 5;
+      foo(&a);
+  }
+  Draw (in text) what the two stack frames look like when foo is executing, and trace what *p = 100 physically does in memory.
+
+---------------     -> bottom of main 
+a = 5;                        main
+return
+---------------     -> main's rbp 
+main rbp
+---------------     --> foo's bottom/ rbp
+*p = 100
+---------------     ---> rsp
+when foo is running, p gets created on stack and points to address of a
+*p = 100 -> changes the value of a to 100;
+foo returns and p gets destroyed and the function main continues
+
+
+
+  ---
+  Coding Exercise
+
+  Write a function swap that takes two integers and swaps their values. The catch: it must actually modify the originals — not copies.
+
+  #include <iostream>
+using namespace std;
+
+void swap(int* a, int* b){
+    *a = *a + *b;
+    *b = *a - *b;
+    *a = *a - *b;
+}
+
+int main(){
+    int a = 10;
+    int b = 20;
+    swap(&a,&b);
+    cout<< a << endl;
+    cout << b <<endl;
+
+    return 0;
+}
