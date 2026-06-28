@@ -1,0 +1,143 @@
+Q1. What is the difference between ref = y and p = &y when ref is a reference to x and p is a pointer to x?
+ref=y updates the value at x and makes x = y, p = &y redirects the pointer p to point to the address of y and to access value at y we need to dereference p  
+
+Q2. Why can't a reference be null, but a pointer can? What does this mean practically when writing functions?
+reference always points to some variable and hence you cant create a reference to something that doesn't exist whereas pointers can be null because you can create them and not point to any address but can reassign it later to point to some address
+
+Q3. You have a function:
+  void foo(int& x) {
+      x = 99;
+  }
+  And in main:
+  int a = 10;
+  foo(a); 
+  Draw what the stack looks like when foo is executing. What does the compiler actually pass under the hood?
+
+------------   -> main's bottom 
+a = 10         -> stored at 0x100
+------------
+return address
+------------   
+main rbp saved  --> foo's rbp
+------------   --> foo's frame
+x = 0x100 
+------------   -> rsp
+
+so when foo is called in main its stack frame is created and the reference x to a is created on the stack and stores the address of a 
+when x =99; is run the value at a directly gets modified and the foo function returns and the foo stack frame is destroyed
+Control goes back to main and the main gets destroyed after its scope
+
+
+Q4. When would you choose a pointer over a reference? Give two concrete situations.
+when the variable can be null , use a pointer when you need to declare it now but bind it later, can't do arithmetic with references in arrays
+
+
+Exercise 1 — Rewrite With References
+
+  Rewrite your find function from last session but instead of returning a pointer, take two reference parameters found and value — found tells the caller whether it was found, value gives the found element. No
+  pointers anywhere.
+
+#include <iostream>
+
+void find(int* arr, int size, int key, bool& found, int& value){
+    
+    found = false;
+    for(int i=0;i<size;i++){
+        if(arr[i] == key){
+            found = true;
+            value = arr[i];
+            return ;
+        }
+    } 
+}
+
+int main(){
+    int nums[] = {4,8,15,16,23,42};
+    bool found;
+    int value;
+    find(nums,6,15,found,value);
+    if (found) {
+        std::cout << "Found: " << value << "\n";   
+    }    
+   find(nums, 6, 99, found, value);
+    if (!found) {
+        std::cout << "Not found\n";               
+    }
+}
+
+Exercise 2 — Min and Max
+  Write a function that finds both the minimum and maximum of an array in a single pass. Return both through reference parameters.
+
+#include <iostream>
+
+void min_max(int* arr,int size,int& min,int& max){
+    min = max = arr[0];
+    for(int i=0;i<size;i++){
+        if(size == 1){min = max = arr[i];}
+        if(arr[i]<min){
+            min = arr[i];
+        }
+        else if(arr[i]>max){
+            max = arr[i];
+        }
+    }
+}
+
+int main(){
+    int nums[] = {3,7,1,9,2,-8,4};
+    int min,max;
+    min_max(nums,7,min,max);
+    std::cout<<"Max: "<<max<<"\nMin: "<<min<<std::endl;
+    return 0;
+}
+
+Exercise 3 — Const Correctness
+
+  Three functions below. For each one, decide whether the parameter should be int&, const int&, or int*, and explain why. Then implement them.
+
+  #include <iostream>
+
+// 1. Prints the value — doesn't modify it
+  void print_value(const int& x) {
+      std::cout << x << "\n";
+  }
+  //Reason - Since it just prints and doesn't modify we can reference the original value but keep it constant
+
+  // 2. Doubles the value in place — modifies the original
+  void double_in_place(int& x) {
+      x = x * 2;
+  }
+//Reason - Since we are modifying the original value we are passing the reference to that
+
+  // 3. Searches array — might find nothing (needs to communicate "not found")
+  int* search(int* arr, int size, int target)
+  // This one is already using a pointer return — explain WHY a reference
+  // return wouldn't work here, even though references are generally preferred
+  // Reason -> Since we are searching the array there is a possibility we can't find the element passing a reference needs a guaranteed value to return
+  {
+    for(int i=0; i<size; i++){
+        if(arr[i]==target){
+            return &arr[i];
+        }
+    }
+    return nullptr;
+  }
+
+  int main(){
+    int x = 10;
+    print_value(x);
+    double_in_place(x);
+    std::cout << "Double: "<< x << std::endl;
+    int nums[]={2,3,4,6,7,8,9};
+    int* result = search(nums,7,6);
+   // result = search(nums,7,10);
+    if(result != nullptr){
+        std::cout<<"Found: "<<*result<<std::endl;
+    }
+    else{
+        std::cout<<"Not found"<<std::endl;
+    }
+    result = search(nums,7,10);
+    return 0;
+
+  }

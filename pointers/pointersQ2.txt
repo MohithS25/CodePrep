@@ -49,6 +49,21 @@ void reverse_array(int* arr, int size){
     }
 }
 
+/*      //More logical solution given by claude -> loop stops when p=q or p crosses q
+void reverse_array(int* arr, int size) {
+      int* p = arr;
+      int* q = arr + (size - 1);
+  
+      while (p < q) {
+          int temp = *p;
+          *p = *q;
+          *q = temp;
+          p++;
+          q--;
+      }
+  }
+  */
+
 int main(){
     int arr[5] = {1,2,3,4,5};
     reverse_array(arr,5);
