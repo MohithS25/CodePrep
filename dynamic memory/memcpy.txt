@@ -1,0 +1,268 @@
+Q1. memcpy(dst, src, n) where dst = 0x200 and src = 0x204, n = 8. Do these regions overlap? Which direction should the copy go and why?
+Yes these regions overlap but since dst is lower than src a forward copy is possible since the src is read before its modified
+
+Q2. Why does memmove compare d < s (the pointer addresses) rather than just always copying backward to be safe?
+As in the previous question if dst = 0x200 and src = 0x204 and we memcpy 8 bytes with a backward copy the region 0x204->0x208 is overwritten before it is even read and copied to the dst region. So a backward copy is only feasible when the dst > src otherwise use forward copy when dst < src
+
+Q3. You're implementing realloc(ptr, new_size). The old size was smaller than new_size. Write in pseudocode the exact steps your implementation takes, naming which memory functions you'd use and why.
+realloc(ptr, new_size){
+    new_ptr = malloc(new_size)
+    memcpy(new_ptr, ptr, old_size)
+    free(ptr)
+    return new_ptr
+}
+
+Coding Exercises
+
+Exercise 1 — Implement memcpy
+Write my_memcpy from scratch. Do not use any standard library memory functions inside it.
+#include <iostream>
+
+void* my_memcpy(void* dst, const void* src, size_t n){
+    unsigned char* d = (unsigned char*)dst;
+    const unsigned char* s = (const unsigned char*)src;
+    for(size_t i=0 ; i < n; i++){
+        d[i] = s[i];
+    }
+    return dst;
+}
+
+int main(){
+    char src[] = "hello";
+    char dst[] = {"mohith"};
+    std::cout << dst << "\n";
+    my_memcpy(dst, src, 6);
+    std::cout << dst << "\n";
+
+    int nums[]={10,20,30,40};
+    int arr[4] = {};
+    my_memcpy(arr, nums, 4 * sizeof(int));
+    for(int i = 0; i < 4; i++){
+        std::cout << arr[i] << " ";
+    }
+    return 0;
+}
+
+Exercise 2 — Implement memmove
+Write my_memmove. The key test is the overlapping case — make sure it handles both directions correctly.
+#include <iostream>
+
+void* my_memmove(void* dst, const void* src, size_t n){
+    unsigned char* d = (unsigned char*)dst;
+    const unsigned char* s = (const unsigned char*)src;
+
+    if(d==s){
+        return dst;
+    }
+    if(d<s){
+        for(size_t i=0; i<n ; i++){
+            d[i] = s[i];
+        }
+    }
+    else if(d>s){
+        for(size_t i=n ; i>0 ; i--){
+            d[i-1] = s[i-1];
+        }
+    }
+    return dst;
+}
+
+int main(){
+    char a[] = "hello";
+    char b[6] = {};
+    my_memmove(b, a, 6);
+    std::cout << b << "\n";   // hello
+  
+    // test 2: dst > src, overlapping — the dangerous case
+    char buf[] = "ABCDEF";
+    my_memmove(buf + 2, buf, 4);   // copy ABCD into position 2
+    std::cout << buf << "\n";      // ABABCD
+
+    // test 3: dst < src, overlapping
+    char buf2[] = "ABCDEF";
+    my_memmove(buf2, buf2 + 2, 4);  // copy CDEF into position 0
+    std::cout << buf2 << "\n";
+    
+    return 0;
+}
+
+Exercise 3 — Implement a simple realloc
+Using your my_memcpy, implement a simplified my_realloc. It receives a pointer to an existing heap allocation, the old size, and the new (larger) size. It should allocate a new block, copy the old data, free the
+old block, and return the new pointer. This is exactly what the real realloc does.
+#include <iostream>
+
+void* my_memcpy(void* dst, const void* src, size_t n){
+    unsigned char* d = (unsigned char*)dst;
+    const unsigned char* s = (const unsigned char*)src;
+
+    for(size_t i = 0; i<n; i++){
+        d[i] = s[i];
+    }
+    return dst;
+}
+
+void* my_realloc(void* arr, size_t old_size, size_t new_size){
+    void* p = malloc(new_size);
+    my_memcpy(p,arr,old_size);
+    free(arr);
+    return p;
+}
+
+int main(){
+    int* arr = new int[3]{10, 20, 30};
+    arr = (int*)my_realloc(arr, 3 * sizeof(int), 6 * sizeof(int));
+    for (int i = 3; i < 6; i++){ 
+        arr[i] = 0;        //adding zeroes to extra elements
+    }
+    for (int i = 0; i < 6; i++){
+        std::cout << arr[i] << " ";  // 10 20 30 0 0 
+    }    
+    delete[] arr;
+    return 0;
+}
+
+Exercise — Build a Mini Dynamic Integer Array
+
+  Implement a simple dynamic integer array from scratch, similar to how std::vector<int> works internally. You decide the struct layout, function names, and how to test it.
+
+  It must support:
+
+  1. Creation — starts with a heap-allocated array of capacity 4, size 0
+  2. Push back — appends an integer to the end. If the array is full, double the capacity before inserting. This growth must use your own my_memcpy internally (non-overlapping — new allocation)
+  3. Insert at index — inserts an integer at a given position, shifting everything from that position rightward by one slot to make room. If full, grow first. The shift must use my_memmove — think carefully about
+  why memcpy would be wrong here
+  4. Print — prints all current elements
+  5. Destroy — cleans up all heap memory correctly
+  
+  Your test in main must:
+  - Push 5 values to trigger at least one resize
+  - Insert a value in the middle
+  - Print the result and verify it looks correct
+  - Clean up with no leaks
+
+  ---
+  Things you need to figure out yourself:
+
+  - What fields does your struct need?
+  - When exactly do you use my_memcpy vs my_memmove and why?
+  - How many bytes do you pass to each — not elements, bytes
+  - What order do you do things in during a grow — and why does order matter?
+  - What happens to the old pointer after a grow?
+
+#include <iostream>
+
+// creating the struct for array
+struct Array{
+    int* data;
+    size_t size;
+    size_t capacity;
+};
+
+// initializing the array with size = 0 , cap = 4
+void init(Array& arr){
+    arr.size = 0;
+    arr.capacity = 4;
+    arr.data = new int[arr.capacity];
+}
+
+//destroy array
+void destroy(Array& arr){
+    delete[] arr.data;
+    arr.size = 0;
+    arr.capacity = 0;
+    arr.data = nullptr;
+}
+
+//memcpy for resize
+void* my_memcpy(void* dst, const void* src, size_t n){
+    unsigned char* d = (unsigned char*)dst;
+    const unsigned char* s = (const unsigned char*)src;
+    for(size_t i = 0; i < n ; i++){
+        d[i] = s[i];
+    }
+    return dst;
+}
+
+//memmove for insert at a position
+void* my_memmove(void* dst, const void* src, size_t n){
+    unsigned char* d = (unsigned char*)dst;
+    const unsigned char* s = (const unsigned char*)src;
+    if(d == s){
+        return dst;
+    }
+    if(d<s){
+        for(size_t i=0; i<n ; i++){
+            d[i] = s[i];
+        }
+    }
+    else if(d>s){
+        for(size_t i=n ; i>0 ; i--){
+            d[i-1] = s[i-1];
+        }
+    }
+    return dst;
+}
+
+//resize the array
+void resize(Array& arr){
+    size_t new_capacity = arr.capacity * 2;
+    int* new_data = new int[new_capacity];
+    my_memcpy(new_data, arr.data, arr.size * sizeof(int));
+    delete[] arr.data;
+    arr.data = new_data;
+    arr.capacity = new_capacity;
+}
+
+//push value at the back
+void push_back(Array& arr, int value){
+    if(arr.size == arr.capacity){
+        resize(arr);
+    }
+
+    arr.data[arr.size] = value;
+    arr.size += 1; 
+}
+
+//insert at a position
+void insert_at(Array& arr, size_t index, int value){
+    if(arr.size == arr.capacity){
+        resize(arr);
+    }
+
+    size_t count = arr.size - index;
+    if(count > 0){
+        my_memmove(arr.data + index + 1, arr.data + index , sizeof(int) * count);   //dst is src + 1; moving by count bytes
+    }
+
+    arr.data[index] = value;
+    arr.size += 1;
+}
+
+void print(Array& arr){
+    for (size_t i = 0; i < arr.size; ++i)
+    {
+        std::cout << arr.data[i] << " ";
+    }
+    std::cout<<"\n";
+}
+
+int main(){
+    Array arr;
+    init(arr);
+
+    push_back(arr,10);
+    push_back(arr,20);
+    push_back(arr,30);
+    push_back(arr,40);
+    push_back(arr,50);
+
+    print(arr);
+
+    insert_at(arr,3,100);
+
+    print(arr);
+
+    destroy(arr);
+
+    return 0;
+}

@@ -1,0 +1,74 @@
+Q1. Why does modifying a pointer inside a function require int** as the parameter, not just int*? Connect your answer back to what you know about pass by value.
+passing a pointer inside a function requires int** because we are basically passing the reference to the pointer and we need a pointer to access that reference in the function. Otherwise if its just int* then it creates its own copy in the function and the actually pointer object is not dereferenced 
+
+  Q2. You have:
+  int x = 10;
+  int* p = &x;
+  int** pp = &p;
+  What does *pp = nullptr do? What is the state of p and x after this line?
+  *pp = nullptr makes p = nullptr since *pp dereferences to p. Value of x remains the same which is 10
+  
+  Q3. In the 2D array cleanup, why must you free the rows before freeing matrix? What goes wrong if you reverse the order?
+  We first declare an array of pointers for rows and then add row elements and hence should be deleted in the reverse order otherwise if we directly free the matrix without freeing the rows then the row information is just lost and never accessible nor deleted
+
+  Exercise 1 — Pointer Modifier
+
+  Write a function initialize that takes an uninitialized int* (currently nullptr) and allocates a new int on the heap with a value the caller provides. The pointer in main must actually be updated.
+
+  #include <iostream> 
+  void initialize(int** pp, int value) {
+      *pp = new int(value);
+  }
+  
+  int main() {
+      int* p = nullptr;
+      initialize(&p, 42);
+      std::cout << *p << "\n";   // should print 42
+      delete p;
+  }
+
+  Exercise 2 — 2D Array
+  Allocate a 3×3 matrix on the heap, fill it so each element equals row * 3 + col (so it counts 0–8 left to right, top to bottom), print it as a grid, then clean up correctly.
+#include <iostream>
+
+int main()
+{
+    int rows=3, columns=3;
+
+    int** matrix = new int*[rows];                    
+    for (int i = 0; i < rows; i++) {
+      matrix[i] = new int[columns];
+    }
+
+    for(int i=0;i<rows;i++){
+        for(int j=0; j<columns; j++){
+            matrix[i][j] = (i*3)+j;
+        }
+    }
+
+    for(int i=0;i<rows;i++){
+        for(int j=0; j<columns; j++){
+            std::cout<< matrix[i][j] << "\t";
+        }
+        std::cout<<"\n";
+    }
+
+    for (int i = 0; i < rows; i++) {
+      delete[] matrix[i];   // free each row first
+    }
+    delete[] matrix;          // then free the array of pointers
+
+    return 0;
+}
+
+Exercise 3 — Argv Explorer  
+  Write a main that uses argc and argv to print each command-line argument on its own line, with its index. Run it with a few arguments and paste the output.
+
+#include <iostream>
+
+int main(int argc, char** argv){
+    for(int i=0; i<argc ; i++){
+        std::cout<<"["<<i<<"]: "<<argv[i]<<std::endl;
+    }
+    return 0;
+}

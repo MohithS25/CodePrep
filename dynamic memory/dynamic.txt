@@ -1,0 +1,121 @@
+Q1. After delete p, what are the two things that are NOT automatically done, and why do both matter?
+what address p was pointing to still remains and p becomes a dangling pointer -> need to set it to nullptr after delete
+value in memory p was pointing to is still stored in that chunk until another dynamic memory allocation happens to that chunk and gets overwritten
+
+The "why it matters" for the memory not being zeroed is worth spelling out explicitly: security. If that memory held a password, an encryption key, or session data, the freed chunk now sits in the free list. The
+  next new call might get that exact chunk and now has access to the previous contents. This is a real class of vulnerability called an information disclosure — sensitive data leaking across allocation
+  boundaries.
+  
+  Setting memory to zero before freeing is something security-critical code does deliberately. Standard delete never does it for you.
+
+Q2. You call new int[10] and later delete p (without []). Describe what goes wrong — not just "it's UB", but what the runtime was trying to do and why skipping [] breaks it.
+runtime is trying to delete an object from the heap and not an array and just deletes the first element of p and rest of the elements still remain in memeory and cause memory leak
+
+Q3. Two functions:  
+  int* create_number(int val) {
+      return new int(val);
+  }   
+  void consume(int* p) {
+      std::cout << *p << "\n";
+  }
+  Who owns the memory returned by create_number? What is the exact bug risk here and what would you do to make ownership clear?
+caller owns the memory returned by create_number and the caller must call delete otherwise that memory is never freed and cause a leak. To make the ownership clear maybe I'd use a unique_ptr so that the function returns to this unique_ptr which gets automatically deleted when it goes out of scope and frees the heap region
+
+  
+Q4. Why is a double free considered a security vulnerability, not just a crash?
+  Since double free sends a signal to the free list that the region is free twice, the allocator can allocate this regions to two different callers or functions that are requesting for it
+
+Exercise 1 — Dynamic Array Builder
+Write a function make_array that allocates an array of size n on the heap, fills it with values 1 through n, and returns the pointer. The caller is responsible for cleanup. In main, use it, print it, then clean
+up correctly.
+
+#include <iostream>
+
+int* make_array(int size){
+    int* arr = new int[size];
+    for(int i=0 ; i < size ; i++ ){
+        arr[i] = i+1;
+    }
+    return arr;
+}
+
+int main() {
+   int* arr = make_array(5);
+   for(int i=0 ; i<5 ; i++){
+    std::cout << arr[i] << " ";
+   }
+   delete[] arr;
+   return 0;
+}
+
+Exercise 2 — Resize
+This is how std::vector grows internally. Write a function resize that takes an existing heap array, its current size, and a new (larger) size. It should allocate a new array, copy the old elements over, fill
+the remaining slots with 0, free the old array, and return the new pointer.
+#include <iostream> 
+
+int* resize(int* old_arr, int old_size, int new_size) {
+    int* arr = new int[new_size]{0};
+    for(int i=0 ; i<old_size ; i++){
+        arr[i] = old_arr[i];
+    }
+    delete[] old_arr;
+    return arr;
+}
+  
+int main() {
+    int* arr = new int[3]{10, 20, 30};
+    arr = resize(arr, 3, 6);
+  
+    for (int i = 0; i < 6; i++) {
+        std::cout << arr[i] << " ";   // 10 20 30 0 0 0
+    }
+    delete[] arr;   
+}
+
+Exercise 3 — Spot the Bugs
+This code has multiple dynamic memory bugs. Find all of them, name each one, and write the corrected version.
+
+  #include <iostream>
+
+  int* make_data(int n) {
+      int* arr = new int[n];
+      for (int i = 0; i < n; i++) arr[i] = i * 2;
+      return arr;
+  }
+  
+  void process(int* data, int size) {
+      for (int i = 0; i <= size; i++) {   // note: <= 
+          std::cout << data[i] << "\n";       
+      }
+      delete data;                            
+  }
+
+  int main() {
+      int* d = make_data(4);
+      process(d, 4);
+      std::cout << d[0] << "\n";              
+      delete[] d;                          
+  }
+Find every bug before running it
+
+#include <iostream>
+
+  int* make_data(int n) {
+      int* arr = new int[n];
+      for (int i = 0; i < n; i++) arr[i] = i * 2;
+      return arr;
+  }
+  
+  void process(int* data, int size) {
+      for (int i = 0; i < size; i++) {   // note: <= size makes it take array out of bounds, prints some random value
+          std::cout << data[i] << "\n";
+      }
+    //  delete data;                        
+  }
+
+  int main() {
+      int* d = make_data(4);
+      process(d, 4);
+      std::cout << d[0] << "\n";            //since data was deleted this will return some random value
+      delete[] d;                           // double delete 
+  }
