@@ -93,13 +93,14 @@ void push_back(Array& arr, int value){
 
 //insert at a position
 void insert_at(Array& arr, size_t index, int value){
+    if(index > arr.size) { return; }
     if(arr.size == arr.capacity){
         resize(arr);
     }
 
     size_t count = arr.size - index;
     if(count > 0){
-        my_memmove(arr.data + index + 1, arr.data + index , sizeof(int) * count);   //dst is src + 1; moving by count bytes
+        my_memmove(arr.data + index + 1, arr.data + index , sizeof(int) * count);   //dst is src + 1; moving by count elements bytes
     }
 
     arr.data[index] = value;
@@ -122,11 +123,11 @@ int main(){
     push_back(arr,20);
     push_back(arr,30);
     push_back(arr,40);
-    push_back(arr,50);
+    push_back(arr,50);            //triggers resize
 
     print(arr);
 
-    insert_at(arr,3,100);
+    insert_at(arr,3,100);        //values after index 3 are pushed by one space
 
     print(arr);
 
