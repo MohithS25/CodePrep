@@ -1,0 +1,68 @@
+Q1. Parse each of these right to left and state in plain English what each means:
+  const char*        s1;                 // s1 is a pointer to a constant char or string literal -> address s1 is pointing can be modified but the char or string can't
+  char* const        s2 = buffer;        //s2 is a constant pointer to a char -> s2 cannot be reassigned but the value stored inside the variable s2 points to can be modified
+  const char* const  s3 = "hello";       //s3 is a constant pointer to a constant char/string -> s3 cannot be reassigned and the string it is pointing to cannot be modified
+
+Q2. You have:
+  int x = 10;
+  const int* p = &x;
+  Can you do x = 99 directly? Can you do *p = 99? Are these the same operation? Explain why one is allowed and the other isn't.
+
+we can do x = 99 as it directly modifies the value stored at x. But since p in a pointer to a constant int we can only the value of x but cannot modify it by dereferencing p
+
+Q3. Why does memcpy declare its source as const void* but its destination as void*? What would break if both were const void*? What would break if both were plain void*?
+memcpy declares the src as const void* because the src shouldn't be modified and should only be read from and the destination is void* because the destination is where we are copying the data to so it has to be modified and can't be const. If both of them were plain void* then the source could be modified internally and the values being read and copied to the destination can be changed at any time and could cause a security vulnerability
+
+Q4. You write a function:
+  void process(int* const arr, int size) { ... }
+  Is this parameter declaration useful? When would it actually matter, and when is it just noise?
+int* const arr makes the local pointer variable constant, so it cannot be reassigned inside the function. function parameters are passed by value, arr is already a copy of the caller's pointer
+
+Coding Exercise
+
+  Three functions, each demonstrating the correct use of one const form. Write their signatures, implement them, and include a comment explaining what the const prevents:
+
+  // 1. Takes an array and prints its sum — should not modify the array
+  //    Use: const int*
+
+  // 2. Takes a pointer to a counter and increments it — pointer itself must not change
+  //    Use: int* const
+
+  // 3. Takes a pointer to a config value — neither the pointer nor the value should change
+  //    Use: const int* const
+
+#include <iostream>
+
+void printSum(const int* arr, int size){
+    int sum = 0;
+    for(int i = 0 ; i < size ; i++){
+        sum += arr[i];
+    }
+    std::cout << "Sum: " << sum << '\n';
+}
+
+void increment(int* const counter){
+    (*counter)++;
+    std::cout << "Counter = " << *counter << '\n';
+}
+
+void printConfig(const int* const config)
+{
+    std::cout << "Config = " << *config << '\n';
+}
+
+
+int main(){
+    int arr[5] = {10,20,30,40,50};
+    printSum(arr,5);
+
+    int counter = 0;
+    increment(&counter);
+    
+    const int config = 100;
+    printConfig(&config);
+
+    return 0;
+}
+
+
