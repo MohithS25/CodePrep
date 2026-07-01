@@ -1,0 +1,246 @@
+/*Coding Exercises
+Exercise 1 — Arena from Scratch
+Implement the arena allocator completely from scratch without looking back. Then use it to allocate and use several different types (int, double, a small struct), reset it, and allocate again. Verify you can
+reuse the arena after reset.
+  */
+
+
+#include <iostream>
+
+struct Arena{
+    unsigned char* buffer;
+    size_t capacity;
+    size_t offset;
+};
+
+void init(Arena& a, size_t capacity){
+    a.buffer = new unsigned char[capacity];
+    a.capacity = capacity;
+    a.offset = 0;
+}
+
+void* arena_alloc(Arena& a,size_t size){
+    size = (size + 7) & ~7;
+    if(a.offset + size > a.capacity){
+        return nullptr;
+    }
+    void* ptr = a.buffer + a.offset;
+    a.offset += size;
+    return ptr;
+}
+
+void reset_arena(Arena& a){
+    a.offset = 0;
+}
+
+void destroy(Arena& a){
+    delete[] a.buffer;
+    a.buffer = nullptr;
+    a.capacity = 0;
+    a.offset = 0;
+}
+
+int main(){
+    Arena a;
+    init(a,64);
+
+    int* pi = (int*)arena_alloc(a,sizeof(int));
+    double* pd = (double*)arena_alloc(a,sizeof(double));
+    *pi = 42;
+    *pd = 3.14159;
+
+    std::cout << "Before free: " << "int: " << *pi <<" Address: " << (void*)pi <<"\n"; 
+    std::cout << "Before free: " << "double: " << *pd <<" Address: " << (void*)pd <<"\n"; 
+
+    void* old_pi = pi;
+    void* old_pd = pd;
+
+    reset_arena(a);
+    int* pi1 = (int*)arena_alloc(a,sizeof(int));
+    double* pd1 = (double*)arena_alloc(a,sizeof(double));
+    *pi1 = 32;
+    *pd1 = 5.14159;
+
+    std::cout << "After reset: " << "int: " << *pi1 <<" Address: " << (void*)pi1 <<"\n"; 
+    std::cout << "After reset: " << "double: " << *pd1 <<" Address: " << (void*)pd1 <<"\n"; 
+
+    destroy(a);
+
+    return 0;
+
+}
+
+
+/*Exercise 2 — Pool from Scratch
+Implement the pool allocator from scratch. Then simulate a particle system: create a pool of 8 "particles" (each particle is just struct Particle { float x, y; int lifetime; }), allocate 5, free 2, allocate 3
+more, and print which ones are alive. This tests that your free list correctly recycles blocks.
+*/
+
+#include <iostream>
+
+struct PoolNode{
+    PoolNode* next;
+};
+
+struct Pool{
+    unsigned char* buffer;
+    PoolNode* free_list;
+    size_t block_size;
+    size_t count;
+};
+
+void init(Pool& p, size_t block_size, size_t count){
+    block_size = block_size < sizeof(PoolNode) ? sizeof(PoolNode) : block_size;
+    p.block_size = block_size;
+    p.count = count;
+    p.buffer = new unsigned char[block_size * count];
+
+    p.free_list = nullptr;
+    for(int i = (int)count - 1; i >= 0 ; i--){
+        PoolNode* node = (PoolNode*)(p.buffer + i * block_size);
+        node->next = p.free_list;
+        p.free_list = node;
+    }
+}
+
+void* pool_alloc(Pool& p){
+    if(!p.free_list){
+        return nullptr;
+    }
+    void* ptr = p.free_list;
+    p.free_list = p.free_list->next;
+    return ptr;
+}
+
+void pool_free(Pool& p, void* ptr){
+    PoolNode* node = (PoolNode*)ptr;
+    node->next = p.free_list;
+    p.free_list = node;
+}
+
+void pool_destroy(Pool& p) {
+    delete[] p.buffer;
+    p.buffer = nullptr;
+}
+
+struct Particle
+{
+    float x, y;
+    int lifetime;
+};
+
+int main(){
+    Pool pool;
+    init(pool, sizeof(Particle), 8);
+    Particle* particles[8] = {nullptr};
+    for (int i = 0; i < 5; i++)
+    {
+        particles[i] = (Particle*)pool_alloc(pool);
+        particles[i]->x = i * 1.0f;
+        particles[i]->y = i * 2.0f;
+        particles[i]->lifetime = 100 - i * 10;
+
+        std::cout << "Allocated Particle " << i
+                  << " at " << particles[i] << '\n';
+    }
+
+    pool_free(pool, particles[1]);
+    particles[1] = nullptr;
+
+    pool_free(pool, particles[3]);
+    particles[3] = nullptr;
+
+    for (int i = 5; i < 8; i++)
+    {
+        particles[i] = (Particle*)pool_alloc(pool);
+
+        if (particles[i] == nullptr)
+        {
+            std::cout << "Pool exhausted\n";
+            continue;
+        }
+
+        particles[i]->x = i * 1.0f;
+        particles[i]->y = i * 2.0f;
+        particles[i]->lifetime = 100;
+
+        std::cout << "Allocated Particle " << i
+                  << " at " << particles[i] << '\n';
+    }
+
+    std::cout << "\nAlive Particles\n\n";
+
+    for (int i = 0; i < 8; i++)
+    {
+        if (particles[i] != nullptr)
+        {
+            std::cout
+                << "Particle " << i
+                << " : Address = " << particles[i]
+                << "  x = " << particles[i]->x
+                << "  y = " << particles[i]->y
+                << "  lifetime = " << particles[i]->lifetime
+                << '\n';
+        }
+    }
+
+    pool_destroy(pool);
+
+    return 0;
+}
+
+
+
+
+ Questions
+
+  Q1. "Is it safe to delete a pointer returned by arena_alloc?"
+
+  No. delete must be paired with the exact pointer returned by new. A pointer from arena_alloc points into the middle of the buffer — not to the start of a heap allocation. Calling delete on it passes a random
+  address to the heap allocator's bookkeeping, which expects a specific header immediately before the pointer. The result is heap corruption and undefined behavior.
+
+  The only correct way to free arena memory is arena_destroy (which calls delete[] a.buffer on the original allocation) or arena_reset to reclaim all allocations at once. Individual allocations from an arena
+  cannot and should not be freed — that's a deliberate design constraint in exchange for O(1) allocation with zero overhead.
+
+  ---
+  Q2. "What constraint does storing PoolNode inside the block impose on block_size?"
+
+  Every free block must be large enough to hold a PoolNode — specifically, large enough to hold one pointer (typically 8 bytes on 64-bit). If block_size were smaller, writing the PoolNode into a free block would
+  overflow into the adjacent block, corrupting the pool.
+  
+  The code enforces this with:
+  block_size = block_size < sizeof(PoolNode) ? sizeof(PoolNode) : block_size;
+  
+  This is the minimum size guarantee. The deeper insight: the pool reuses the block's own memory for bookkeeping. When a block is free, its bytes store a pointer. When it's in use, those bytes store actual data.
+  The same memory serves two purposes depending on state. This is why the pool has zero per-block overhead — no separate header needed.
+
+  ---
+  Q3. "After arena_reset, memory is not zeroed. Is this safe? When is it dangerous?"
+
+  Mechanically safe — the allocator's state is consistent and new allocations work correctly. But two real dangers exist:
+
+  Sensitive data exposure. If the arena held a password, private key, or session token, that data physically remains in the buffer after reset. The next allocation into the same region gets handed that data. In
+  security-critical code, you zero memory before releasing it:
+
+  void reset_arena(Arena& a) {  
+      memset(a.buffer, 0, a.offset);   // zero before reset
+      a.offset = 0;
+  }
+
+  Stale pointer reads. After reset, old pointers like pi and pd from Exercise 1 still point to valid memory (the buffer wasn't freed). Reading *pi after reset gives 42 — the old value is still there. This feels
+  like it's working, but you're reading memory that now "belongs" to future allocations. The next arena_alloc call will hand out that same address and overwrite it. This is use-after-free in spirit even though the
+  buffer itself is still alive.
+  
+  ---
+  Q4. "Why does the pool not need alignment rounding on the size parameter?"
+  
+  Because the pool doesn't take a size parameter at all. Every call to pool_alloc returns one block of exactly block_size, set once at init time. There's no variable request size to round up.
+
+  The general-purpose allocator and arena round up each incoming request because different callers ask for different sizes — alloc(3) needs to become alloc(8) to stay aligned. The pool sidesteps this entirely
+  because all allocations are identical in size.
+
+  However, as the alignment issue in Exercise 2 shows, block_size itself should still be aligned. The difference is: you align block_size once at init time rather than per-request. In a production pool you'd add:
+
+  block_size = (block_size + 7) & ~7;    // align block_size itself, once
+
+  After this, every block in the pool starts at an 8-byte aligned address automatically, since 0, 16, 32, 48... are all multiples of 8.
