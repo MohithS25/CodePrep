@@ -1,0 +1,314 @@
+Coding Exercises
+
+  Exercise 1 — Build a String class
+
+  Write a String class from scratch. It must:
+  - Store a heap-allocated null-terminated char* and its length
+  - Constructor from const char* (allocate and copy) 
+  - Destructor (free)
+  - Deep copy constructor and copy assignment
+  - Move constructor and move assignment
+  - length(), c_str(), operator[] (with bounds check), print()
+
+  No std::string. Use strlen, memcpy (or write your own).
+
+#include <iostream>
+
+class String{
+    char* data;
+    size_t len;
+
+    static char* allocate_and_copy(const char* s, size_t len) {
+        char* buffer = new char[len + 1];
+        memcpy(buffer, s, len);
+        buffer[len] = '\0';
+        return buffer;
+    }
+
+public:
+    String() : data(new char[1]{'\0'}), len(0) {}
+
+    String(const char* s){
+        if(s == nullptr){
+            len = 0;
+            data = new char[1]{'\0'};
+            return;
+        }
+        len = strlen(s);
+        data = allocate_and_copy(s, len);
+    }
+
+    ~String() {
+        delete[] data;
+    }
+
+    String(const String& other) : len(other.len){
+        data = allocate_and_copy(other.data, other.len);
+    }
+
+    String& operator=(const String& other) {
+        if (this != &other) {
+            char* new_data = allocate_and_copy(other.data, other.len);
+            delete[] data;
+            data = new_data;
+            len = other.len;
+        }
+        return *this;
+    }
+
+    String(String&& other) noexcept : data(other.data), len(other.len){
+        other.len = 0;
+        other.data = nullptr;
+    }
+
+    String& operator=(String&& other) noexcept{
+        if(this != &other){
+            delete[] data;
+            data = other.data;
+            len = other.len;
+
+            other.data = nullptr;
+            other.len = 0;
+        }
+        return *this;
+    }
+
+    size_t length() const {
+        return len;
+    }
+    
+    const char* c_str() const {
+        return data;
+    }
+
+    char& operator[](size_t index) {
+        if (index >= len) {
+            throw std::out_of_range("String::operator[] out of range");
+        }
+        return data[index];
+    }
+
+    const char& operator[](size_t index) const {
+        if (index >= len) {
+            throw std::out_of_range("String::operator[] out of range");
+        }
+        return data[index];
+    }
+
+    void print() const {
+        std::cout << data << '\n';
+    }
+
+};
+
+int main(){
+    String a("hello");
+    String b = a;          // copy
+    String c = std::move(a); // move
+
+    //a.print();               segfault
+    b[0] = 'H';
+    b.print();             
+    
+    std::cout << c.c_str() << "\n"; 
+    c.print();                             //same as c.c_str()
+    std::cout << c.length() << "\n";
+}
+
+
+Exercise 2 — Shape hierarchy
+
+  Write an abstract Shape base class with pure virtual area() and perimeter(). Derive Circle and Rectangle from it. Each stores its own dimensions.
+
+  Then write:
+  void print_info(Shape* s);   // prints area and perimeter through base pointer
+  
+  Call it with both a Circle and a Rectangle. Add print statements to each constructor and destructor to verify correct construction and destruction order.
+
+#include <iostream>
+
+class Shape{
+
+public:
+    Shape() {
+        std::cout << "Shape constructor \n";
+    }
+    
+    virtual double area() = 0;
+    virtual double perimeter() = 0;
+
+    virtual ~Shape(){
+        std::cout << "Shape destructor called \n";
+    }
+
+};
+
+class Rectangle : public Shape {
+    double length;
+    double width;
+public:
+    Rectangle(double l, double w) : length(l), width(w) {
+        std::cout << "Rectangle constructor called \n";
+    }
+
+    ~Rectangle() override {
+        std::cout << "Rectangle destructor called \n";
+    }
+
+    double area() override {
+        return length * width;
+    }
+
+    double perimeter() override {
+        return 2 * (length + width); 
+    }
+};
+
+class Circle : public Shape {
+    double radius;
+
+public:
+    Circle(double r) : radius(r){
+        std::cout << "Circle constructor called \n";
+    }
+
+    ~Circle() override{
+        std::cout << "Circle destructor called \n";
+    }
+
+    double area() override {
+        return radius * radius * 3.14;
+    }
+
+    double perimeter() override {
+        return 2 * 3.14 * radius;
+    }
+};
+
+void print_info(Shape* s){
+    std::cout << "Area: " << s->area() << '\n';
+    std::cout << "Perimeter: " << s->perimeter() << '\n';
+}
+
+int main(){
+    Circle c(5);
+    Rectangle r(4, 6);
+
+    print_info(&c);
+
+    print_info(&r);
+
+    return 0;
+}
+
+Exercise 3 — Mini vtable inspection
+
+  Write a class Base with two virtual functions foo() and bar(), and a derived class Derived that overrides only foo(). Then:
+
+  Base* b = new Derived();
+
+  Print the addresses of b->foo and b->bar by extracting the vptr and reading function pointers directly from it. You'll need to cast the vptr:
+
+  void** vptr = *(void***)b;
+  // vptr[0] is the first virtual function's address
+  // vptr[1] is the second
+  
+  Then print and compare the function addresses against &Base::foo, &Base::bar, &Derived::foo directly. You'll see that vptr[0] matches Derived::foo and vptr[1] matches Base::bar. This is the vtable working in
+  practice.
+
+#include <iostream>
+
+class Base {
+public:
+
+    virtual void foo(){
+        std::cout << "Base::foo\n";
+    };
+    virtual void bar(){
+        std::cout << "Base::bar\n";
+    };
+};
+
+class Derived : public Base {
+public:
+    void foo() override {
+        std::cout << "Derived::foo\n";
+    }
+};
+
+int main(){
+    Base* b = new Derived();
+    
+    void** vptr = *(void***)b;
+
+    std::cout << "vptr[0] = " << vptr[0] << '\n';
+    std::cout << "vptr[1] = " << vptr[1] << '\n';
+
+    using FnPtr = void(*)();
+    FnPtr vfoo = (FnPtr)vptr[0];           // vfoo holds Derived::foo's address 
+    FnPtr vbar = (FnPtr)vptr[1];           // vbar holds Base::bar's address   
+
+    std::cout << (void*)vfoo << '\n';
+    std::cout << (void*)vbar << '\n';
+
+
+    b->foo();
+    b->bar();
+
+    return 0;
+}
+
+Questions
+
+  Q1. A class has int a, double b, char c as members in that order. What is sizeof this class likely to be, and why isn't it 4 + 8 + 1 = 13?
+  int -> 4 bytes, double starts at 8 bytes locations so padding of 4 bytes between int and double, then char takes 1 byte and padding of 7 bytes -> 4 + 4 + 8 + 1 + 7 = 24
+
+  Q2. Given:
+  class Foo {
+      int x;
+  public: 
+      Foo() : x(10) {}
+      Foo(int v) : x(v) {}
+  };
+  What happens when you write Foo arr[3];? Which constructor is called, how many times, in what order?
+  The default constructor is called 3 times and initializes the array with 10 ,10, 10
+
+  Q3. You write this class:
+  class String {
+      char* data;
+      size_t len;
+  public:
+      String(const char* s);
+      ~String() { delete[] data; } 
+  };
+  What happens if you copy a String into another String without defining a copy constructor? Walk through the exact sequence of events that causes a crash.
+  When you copy a string to another string without copy constructor the compiler does a shallow copy and now both objects point to the same string and when both get destroyed the same string gets deleted twice which causes a crash
+   1. String a("hello")  → allocates 6 bytes, a.data = 0x1000
+  2. String b = a       → compiler generates: b.data = a.data (= 0x1000), b.len = a.len
+                          No new allocation. Both point to same memory.
+  3. b goes out of scope → ~String(): delete[] b.data → 0x1000 freed
+  4. a goes out of scope → ~String(): delete[] a.data → delete[] 0x1000 again
+                           Memory already freed → heap corruption / crash
+
+  Q4. Why must the destructor be virtual when deleting a derived class through a base class pointer? What physically goes wrong at the machine level when it isn't?
+  If it's not virtual then the derived class destructor might not run at all or might not have the necessary data to destruct
+  Without virtual destructor:   
+  The compiler sees static type Animal*. It emits a direct call instruction:
+  call Animal::~Animal    ; hardcoded at compile time
+  Dog's destructor is never touched. Any memory Dog's constructor allocated leaks permanently.
+
+  Q5. A class has two virtual functions. Describe exactly what the compiler adds to the object's memory layout and what the vtable contains for a derived class that overrides one of the two.
+  The compiler adds a vtable that keeps track of the virtual functions and has ptr to do so. So the derived class vtable will contain a pointer vbptr that points to the vitual function and it can override that
+
+What gets added to the object:
+  Without virtuals:          With virtuals:
+  ┌──────────────┐           ┌──────────────┐
+  │  data members│           │  vptr (8 B)  │  ← hidden, at offset 0
+  └──────────────┘           │  data members│
+                             └──────────────┘
+  Every instance gets one pointer (vptr) prepended. sizeof increases by 8.
+
+  What the vtable contains for the derived class that overrides one function:
+  Base vtable:        Derived vtable:
+  [0] Base::foo       [0] Derived::foo   ← replaced
+  [1] Base::bar       [1] Base::bar      ← inherited unchanged

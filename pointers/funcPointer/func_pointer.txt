@@ -8,14 +8,25 @@ Q1. What is the type of add in this code, and what does it decay to when you wri
   int (*fp)(int, int);
   int result = fp(3, 4);
 
-  fp is declared but doesn't point to any function. so when result instruction is run by the compiler it doesn't compile or gives an error
-
+  The compiler does not check whether a pointer is initialized before you use it. This compiles without error or warning (unless you have -Wuninitialized and the compiler can detect it, which it often can't). It's
+  the same situation as int* p; *p = 5; — compiles, blows up at runtime.
+  At runtime: fp holds whatever garbage was on the stack at that memory location. Calling through it jumps to a random address. The CPU executes whatever bytes happen to live there — most likely a segfault,
+  possible memory corruption, theoretically anything. This is undefined behavior at runtime, not a compile error.
+  The rule: the compiler trusts you about pointers. If you declare one, it assumes you'll initialize it before use.
+  
   Q3. You have a dispatch table:
   using Op = int(*)(int, int);
   Op ops[3] = { add, sub, mul };
   If I call ops[2](5, 3), walk through exactly what the CPU does — what is in ops[2], what happens at the call site.
 
-  ops[2] = mul so the compiler just converts that to mul(5,3) and calls the mul function with 5 and 3 as parameters
+  At runtime, the CPU does this:
+
+  1. Compute address of ops[2]: base address of ops array + 2 * sizeof(pointer)
+  2. Load the 8-byte value stored there → this is the address of mul
+  3. Put 5 in edi, 3 in esi (argument registers)
+  4. call rax    ← INDIRECT call — jump to whatever address is in rax
+  This is also why the dispatch table has overhead compared to a direct function call: it requires a memory load (read ops[2] from the array) plus a branch to a non-hardcoded address. Modern CPUs have branch
+  predictors that handle this well, but it's not free.
 
   Q4. Why can't a raw function pointer (int(*)(int,int)) hold a lambda that captures a variable? What is missing from the type?
   int factor = 10;
