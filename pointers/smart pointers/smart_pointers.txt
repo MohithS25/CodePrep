@@ -1,0 +1,204 @@
+Exercise 1 — Implement my_unique_ptr
+
+  Write a complete my_unique_ptr<T> from scratch. It must support:
+  - Constructor, destructor (calls delete)
+  - Deleted copy constructor and copy assignment
+  - Move constructor and move assignment
+  - operator*, operator->, get(), operator bool
+  - reset() and release()
+
+  Test it with an int and a small struct. Verify ownership transfers correctly with move.
+
+#include <iostream>
+
+template <typename T>
+class my_unique_ptr{
+    T* ptr;
+    public:
+        explicit my_unique_ptr(T* p = nullptr) : ptr(p){}         //constructor
+
+        ~my_unique_ptr(){
+            delete ptr;
+        }
+
+        my_unique_ptr(const my_unique_ptr&) = delete;
+        my_unique_ptr& operator=(const my_unique_ptr&) = delete;
+        
+        my_unique_ptr(my_unique_ptr&& other) : ptr(other.ptr) {
+            other.ptr = nullptr;
+        }
+
+        my_unique_ptr& operator=(my_unique_ptr&& other) {
+            if(this != &other){
+                delete ptr;
+                ptr = other.ptr;
+                other.ptr = nullptr;
+            }
+            return *this;
+        }
+
+        T& operator*() const { return *ptr; }
+        T* operator->() const { return ptr; }
+        T* get() const { return ptr; }
+        explicit operator bool() const {
+            return ptr!=nullptr;
+        }
+
+        T* release(){
+            T* tmp = ptr;
+            ptr = nullptr;
+            return tmp;
+        }
+
+        void reset(T* p = nullptr){
+            delete ptr;
+            ptr = p;
+        }
+};
+
+struct Point
+{
+    int x;
+    int y;
+
+    void print() const
+    {
+        std::cout << "Point(" << x << ", " << y << ")\n";
+    }
+};
+
+int main(){
+    
+    my_unique_ptr<int> p1(new int(42));
+    std::cout << "p1 value = " << *p1 << "\n";
+    std::cout << "p1 owns? " << bool(p1) << "\n";
+
+    my_unique_ptr<int> p2 = std::move(p1);
+    std::cout << "After move:\n";
+    std::cout << "p1 owns? " << bool(p1) << "\n";
+    std::cout << "p2 owns? " << bool(p2) << "\n";
+    std::cout << "p2 value = " << *p2 << "\n";
+
+    my_unique_ptr<Point> q1(new Point{3, 7});
+    std::cout << "q1 at " << q1.get() << " -> ";
+    q1->print();
+
+    my_unique_ptr<Point> q2(new Point{10, 20});
+    std::cout << "q2 before move at " << q2.get() << " -> ";
+    q2->print();
+
+    q2 = std::move(q1);
+
+    std::cout << "After move assignment:\n";
+    std::cout << "q1 owns? " << bool(q1) << "\n";
+    std::cout << "q2 owns? " << bool(q2) << "\n";
+    std::cout << "q2 now at " << q2.get() << " -> ";
+    q2->print();
+
+    return 0;
+}
+
+Exercise 2 — Spot the Ownership Bug
+
+  This code compiles but has a serious problem:
+
+  void register_handler(std::shared_ptr<Handler> h);
+
+  int main() { 
+      Handler* raw = new Handler();
+      std::shared_ptr<Handler> a(raw);
+      std::shared_ptr<Handler> b(raw);   // two shared_ptrs from same raw pointer
+  
+      register_handler(a);
+      register_handler(b);
+  }
+
+  What is the bug? What is the shared_count in each shared_ptr's control block, and what happens when both go out of scope? Write the fix.
+
+two separed shared_ptr from same raw pointers creates two control blocks with each reference count = 1 and when register_handle(a) or with b is called the ref counts goes up but comes back to 1 after the function scope and when both shared_ptr get destroyed after main ends they delete raw twice causing double free
+
+Fix:
+Handler* raw = new Handler();
+std::shared_ptr<Handler> a(raw);
+std::shared_ptr<Handler> b = a;   // both point to raw
+
+// BEST fix — raw pointer never exists as a named variable
+  auto a = std::make_shared<Handler>();
+  auto b = a;   // shares the same control block
+
+
+Exercise 3 — Fix the Cycle
+
+  This code leaks memory. Find the cycle, explain why it leaks, and fix it using weak_ptr:
+
+  #include <memory>   
+  #include <iostream>
+
+  struct Owner {
+      std::shared_ptr<Pet> pet;
+      ~Owner() { std::cout << "Owner destroyed\n"; }
+  };
+  
+  struct Pet {
+      std::shared_ptr<Owner> owner;
+      ~Pet() { std::cout << "Pet destroyed\n"; }
+  };
+
+  int main() { 
+      auto owner = std::make_shared<Owner>();
+      auto pet   = std::make_shared<Pet>();
+      owner->pet   = pet;
+      pet->owner   = owner;
+  }
+
+
+/*circular reference 
+%  Owner holds shared_ptr<Pet> pet
+%  Pet holds shared_ptr<Owner> owner
+%  when main ends -> owner is destroyed, but Owner is still kept alive by pet->owner
+%  similarly when pet is destroyed, Pet is still kept alive by owner->pet
+% Fix -> use weak_ptr  
+
+
+ #include <memory>   
+  #include <iostream>
+
+  struct Pet;
+
+  struct Owner {
+      std::shared_ptr<Pet> pet;
+      ~Owner() { std::cout << "Owner destroyed\n"; }
+  };
+  
+  struct Pet {
+      std::weak_ptr<Owner> owner;
+      ~Pet() { std::cout << "Pet destroyed\n"; }
+  };
+
+  int main() { 
+      auto owner = std::make_shared<Owner>();
+      auto pet   = std::make_shared<Pet>();
+      owner->pet   = pet;
+      pet->owner   = owner;
+  }
+
+QUESTIONS:
+  Q1. Why is the copy constructor of unique_ptr deleted rather than just left unimplemented (private with no body)?
+  This could call copy or shallow copy the two pointers which defeats the purpose of giving sole ownership
+
+  Q2. shared_ptr uses two heap allocations when you write shared_ptr<int>(new int(42)). Under what circumstance can this cause a memory leak even before you use the pointer — and how does make_shared prevent it?
+  make_shared stores the object and control block together which helps in better cache locality and doesn't cause fragmentation. Using two heap allocations can cause fragmentation and the data and control block could sit on two different cache lines
+
+  Q3. After std::move(a) transfers ownership from a to b, what is the value of a.get()? What happens if you dereference a after the move?
+  a.get() will give null, if we dereference it will cause segfault
+
+  Q4. You have a shared_ptr<Node> with shared_count = 1 and weak_count = 2. The last shared_ptr is destroyed. Walk through exactly what happens to the object and the control block.
+  object dies when shared_count=0 but the control block remains until the weak_count becomes 0
+
+  Q5. A teammate writes: 
+  void process(std::shared_ptr<int> p) {
+      std::cout << *p << "\n";
+  }
+  The function doesn't store p, doesn't share ownership, just reads the value. What is wrong with this signature and what should it be instead?
+  passing the shared_ptr by copy just creates another copy and increases ref count and decreases after the function executes. There is no change in ownership. We could just pass a reference
+  Fix: void process(const int* p)
