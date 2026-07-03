@@ -1,0 +1,345 @@
+/*Exercise 1 — Generic Stack<T>
+
+  Write a class template Stack<T> from scratch. It must support:
+  - push(T value) — add to top
+  - pop() — remove from top (throw std::underflow_error if empty)
+  - top() — return reference to top element (const and non-const versions)
+  - empty() — true if no elements
+  - size() — number of elements
+  
+  Use a heap-allocated array internally (like your dynamic Array from earlier — not std::vector). Handle growth when capacity is exceeded. Apply the Rule of Five correctly.
+
+*/
+
+
+#include <iostream>
+
+template <typename T>
+class Stack {
+private:
+    T* data_;
+    std::size_t size_;
+    std::size_t capacity_;
+
+    void grow() {
+        std::size_t new_capacity = (capacity_ == 0) ? 1 : capacity_ * 2;
+        T* new_data = new T[new_capacity];
+
+        for (std::size_t i = 0; i < size_; ++i) {
+            new_data[i] = std::move(data_[i]);
+        }
+
+        delete[] data_;
+        data_ = new_data;
+        capacity_ = new_capacity;
+    }
+
+public:
+    Stack() : data_(nullptr), size_(0), capacity_(0) {}
+
+    ~Stack() {
+        delete[] data_;
+    }
+
+    Stack(const Stack& other)
+        : data_(other.capacity_ ? new T[other.capacity_] : nullptr),
+          size_(other.size_),
+          capacity_(other.capacity_) {
+        for (std::size_t i = 0; i < size_; ++i) {
+            data_[i] = other.data_[i];
+        }
+    }
+
+    Stack& operator=(const Stack& other) {
+        if (this != &other) {
+            T* new_data = other.capacity_ ? new T[other.capacity_] : nullptr;
+            for (std::size_t i = 0; i < other.size_; ++i) {
+                new_data[i] = other.data_[i];
+            }
+
+            delete[] data_;
+            data_ = new_data;
+            size_ = other.size_;
+            capacity_ = other.capacity_;
+        }
+        return *this;
+    }
+
+    Stack(Stack&& other) noexcept
+        : data_(other.data_), size_(other.size_), capacity_(other.capacity_) {
+        other.data_ = nullptr;
+        other.size_ = 0;
+        other.capacity_ = 0;
+    }
+
+    Stack& operator=(Stack&& other) noexcept {
+        if (this != &other) {
+            delete[] data_;
+            data_ = other.data_;
+            size_ = other.size_;
+            capacity_ = other.capacity_;
+
+            other.data_ = nullptr;
+            other.size_ = 0;
+            other.capacity_ = 0;
+        }
+        return *this;
+    }
+
+    void push(T value) {
+        if (size_ == capacity_) {
+            grow();
+        }
+        data_[size_++] = std::move(value);
+    }
+
+    void pop() {
+        if (empty()) {
+            throw std::underflow_error("Stack::pop: empty stack");
+        }
+        --size_;
+    }
+
+    T& top() {
+        if (empty()) {
+            throw std::underflow_error("Stack::top: empty stack");
+        }
+        return data_[size_ - 1];
+    }
+
+    const T& top() const {
+        if (empty()) {
+            throw std::underflow_error("Stack::top: empty stack");
+        }
+        return data_[size_ - 1];
+    }
+
+    bool empty() const {
+        return size_ == 0;
+    }
+
+    std::size_t size() const {
+        return size_;
+    }
+};
+
+int main() {
+    Stack<std::string> s;
+
+    s.push("one");
+    s.push("two");
+    s.push("three");
+
+    std::cout << s.top() << '\n'; // three
+    s.pop();
+    std::cout << s.top() << '\n'; // two
+    std::cout << s.size() << '\n'; // 2
+
+    Stack<std::string> copy = s;   // copy constructor
+    Stack<std::string> moved = std::move(s); // move constructor
+
+    std::cout << copy.top() << '\n';
+    moved.pop();
+    moved.pop();
+    std::cout << moved.empty() << '\n';
+    moved.push("four");
+    std::cout << moved.top() << '\n';
+}
+
+/*Exercise 2 — Generic Array Algorithms
+
+  Write these three function templates that work on C-style arrays of any type, using a non-type template parameter for the size:
+
+  template<typename T, int N>   
+  T array_min(T (&arr)[N]);    // minimum element
+
+  template<typename T, int N>   
+  T array_max(T (&arr)[N]);    // maximum element
+
+  template<typename T, int N>
+  void array_reverse(T (&arr)[N]);  // reverse in place
+  
+  T (&arr)[N] is a reference to an array of N elements of type T — this lets the compiler deduce both T and N from the argument, so you can call array_min(my_array) without specifying anything explicitly.
+
+  Test with int, double, and std::string arrays.
+  */
+
+#include <iostream>
+#include <string>
+
+template<typename T, int N>
+T array_min(T (&arr)[N]) {
+    T min = arr[0];
+
+    for (int i = 1; i < N; i++) {
+        if (arr[i] < min)
+            min = arr[i];
+    }
+
+    return min;
+}
+
+template<typename T, int N>
+T array_max(T (&arr)[N]) {
+    T max = arr[0];
+
+    for (int i = 1; i < N; i++) {
+        if (arr[i] > max)
+            max = arr[i];
+    }
+
+    return max;
+}
+
+template<typename T, int N>
+void array_reverse(T (&arr)[N]) {
+    int left = 0;
+    int right = N - 1;
+
+    while (left < right) {
+        T temp = arr[left];
+        arr[left] = arr[right];
+        arr[right] = temp;
+
+        left++;
+        right--;
+    }
+}
+
+template<typename T, int N>
+void sort_array(T (&arr)[N]) {
+    for (int i = 0; i < N - 1; i++)
+    {
+        for (int j = 0; j < N - i - 1; j++)
+        {
+            if (arr[j] < arr[j + 1])
+            {
+                T temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+        }
+    }
+}
+
+template<typename T, int N>
+void print_array(T (&arr)[N]) {
+    for (int i = 0; i < N; i++){
+        std::cout << arr[i] << " ";
+    }
+    std::cout << '\n';
+}
+
+int main() {
+
+    int a[] = {5, 2, 8, 1, 4};
+    double b[] = {3.5, 1.2, 7.8, 0.9};
+    std::string c[] = {"pear", "apple", "orange", "banana"};
+
+    std::cout << "Integer Array\n";
+    print_array(a);
+    std::cout << "Min: " << array_min(a) << '\n';
+    std::cout << "Max: " << array_max(a) << '\n';
+    array_reverse(a);
+    print_array(a);
+    sort_array(a);
+    print_array(a);
+
+    std::cout << "\nDouble Array\n";
+    print_array(b);
+    std::cout << "Min: " << array_min(b) << '\n';
+    std::cout << "Max: " << array_max(b) << '\n';
+    array_reverse(b);
+    print_array(b);
+    sort_array(b);
+    print_array(b);
+
+    std::cout << "\nString Array\n";
+    print_array(c);
+    std::cout << "Min: " << array_min(c) << '\n';
+    std::cout << "Max: " << array_max(c) << '\n';
+    array_reverse(c);
+    print_array(c);
+}
+
+/* Exercise 3 — Specialization
+
+  Write a generic to_string(T value) function template that converts any type to a std::string using a std::ostringstream. Then write full specializations for:
+  - bool — returns "true" or "false" (not "1" or "0")
+  - const char* — returns the string as-is, wrapped in quotes: "hello" → "\"hello\""
+
+  Test all three paths:
+  to_string(42)       // "42"
+  to_string(true)     // "true"
+  to_string("hello")  // "\"hello\""
+  */
+
+#include <iostream>
+#include <sstream>
+
+template<typename T>
+std::string to_string(T value) {
+    std::ostringstream oss;
+    oss << value;
+    return oss.str();
+}
+
+// Full specialization for bool
+template<>
+std::string to_string<bool>(bool value) {
+    return value ? "true" : "false";
+}
+
+// Full specialization for const char*
+template<>
+std::string to_string<const char*>(const char* value) {
+    return "\"" + std::string(value) + "\"";
+}
+
+int main() {
+    std::cout << to_string(42) << '\n';
+    std::cout << to_string(3.14) << '\n';
+    std::cout << to_string(true) << '\n';
+    std::cout << to_string(false) << '\n';
+    std::cout << to_string("hello") << '\n';
+}
+
+
+ Questions
+  
+  Q1. What does "instantiation" mean for a template? When exactly does it happen, and who triggers it?
+  Instantiation = compiler substituting T with a real type and generating concrete machine code. It happens at compile time, triggered by the call site — the moment you write max(3, 5), the compiler generates
+  max<int> on the spot.
+
+  Q2. You write a template function in a .cpp file and declare it in a .h. It compiles fine. But when you try to use it from another .cpp file, you get a linker error. Why? What does the linker error message
+  likely say?
+  The compiler for main.cpp saw only the declaration — not the body. Without the body it can't generate max<int>. The linker error says undefined reference to max<int> because no translation unit ever produced
+  that symbol.
+  
+  Q3. What's the difference between a full specialization and a partial specialization? Which can be applied to function templates and which only to class templates?
+  Full specialization (template<>) — exact type, works for both function and class templates. Partial specialization — a pattern of types (Box<T*>), class templates only. Function templates don't support
+  partial specialization; use overloading instead.
+
+  Q4. Given:
+  template<typename T>
+  void foo(T x) {}
+  
+  template<typename T>
+  void bar(const T& x) {}
+  What is T deduced as in each case for foo(42) and bar(42)? What about foo("hello") and bar("hello")?
+
+  foo(42)      → T = int
+  bar(42)      → T = int,     parameter type = const int&   (binds to rvalue)
+  foo("hello") → T = const char*  (array decays — value params always decay)
+  bar("hello") → T = char[6], parameter type = const char(&)[6]  (no decay for refs)
+  The reference case is the surprising one — arrays don't decay when bound to references, so T picks up the full array type including its size.
+
+  Q5. Why does this fail without typename, and what does the compiler assume value_type is without it?
+  template<typename Container>
+  void first(Container& c) {
+      Container::value_type x = *c.begin();
+  }
+
+   Without typename, the compiler assumes Container::value_type is a static member variable, not a type. The line then parses as a multiplication expression (value_type times x), which is nonsensical. typename
+  tells the compiler "this is a type name" so the declaration parses correctly. This applies to any name accessed through a template parameter — the compiler can't look inside T at definition time, so it defaults
+  to assuming values.

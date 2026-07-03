@@ -76,8 +76,8 @@ int main(){
     for (Animal* a : zoo) {
         delete a;
     }
-
-    std::cout << "=== virtual-function version ===\n";
+    
+std::cout << "=== virtual-function version ===\n";
 
     Animal2* zoo2[] = { new Dog2(), new Cat2(), new Dog2(), new Cat2() };
 
@@ -92,6 +92,7 @@ int main(){
 
     return 0;
 }
+
 
  // Version 1 (dynamic_cast) is more honest but fragile.
   // It's honest: the base class isn't polluted with Dog/Cat-specific methods.
