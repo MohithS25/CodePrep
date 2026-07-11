@@ -1,0 +1,24 @@
+To turn this into the ultimate C design systems challenge, we need to adapt the skeleton code so that it forces the choice between Synchronous and Asynchronous architectures.
+
+This updated challenge introduces a configuration flag at initialization (LOG_MODE_SYNC vs LOG_MODE_ASYNC). If set to asynchronous, the logger must spin up a dedicated background thread and safely pass messages through a fixed-size ring buffer—forcing the developer to manage thread wake-ups, atomic memory bounds, and graceful shutdown sequences without dropping messages.
+
+C Challenge: The Adaptive Sync/Async Rotating Logger
+Objective
+Your goal is to implement a production-grade logging utility in C that can toggle between Synchronous (blocking) and Asynchronous (non-blocking) processing modes at runtime. You must handle multithreading race conditions, precise file-size tracking, log rotation, and thread-safe cross-thread memory queues.
+
+The Architectural Requirements
+1. Synchronous Mode (LOG_MODE_SYNC)
+The calling thread formats and writes the log directly to the file stream, calling fflush() before returning. It blocks the application but guarantees that if the program crashes on the very next line, the log safely exists on disk.
+
+2. Asynchronous Mode (LOG_MODE_ASYNC)
+The calling thread must never perform file I/O, format strings, or block. Instead, logger_log must rapidly package the log details and push them into a thread-safe Ring Buffer. A dedicated Background Worker Thread (spawned during initialization) continuously drains this buffer, formats the metadata, and executes the heavy file I/O and log rotations.
+
+3. Log Rotation & Graceful Shutdown
+Rotation: When a file exceeds max_file_size_bytes, close it, rename it to <filename>.old, and open a fresh file.
+Shutdown: When logger_destroy is called in Async mode, you must carefully signal the worker thread to finish draining any remaining logs in the queue, wait for it to exit cleanly (pthread_join), and only then free all system resources.
+
+
+Code Defenses & Things to Watch Out For:
+The Dreaded Deadlock: Notice there are two distinct mutexes (stream_lock and queue_lock). Ensure that your logic never attempts to lock one while holding the other, or you risk an execution deadlock.
+The Spurious Wakeup: When parsing thread state changes with condition variables, always loop your structural evaluations inside a while loop, not an if block (while(count == 0) { pthread_cond_wait(...); }).
+The Final Drain: During destruction, an asynchronous logger must make sure the background worker prints every single log line left inside the queue array before exiting, ensuring zero data loss during a controlled restart.

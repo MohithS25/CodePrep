@@ -1,0 +1,33 @@
+Questions
+
+Q1. What is wrong with this code?
+
+int* arr = malloc(5 * sizeof(int));
+arr = realloc(arr, 10 * sizeof(int));
+
+Q2. This code compiles and sometimes works. What's the bug?
+
+typedef struct { char* data; size_t len; } Buffer;
+
+Buffer make_buffer(size_t n) {
+    Buffer b;
+    b.data = malloc(n);
+    b.len = n;
+    return b;
+}
+
+int main() {
+    Buffer b = make_buffer(64);
+    b.data[0] = 'A';
+    // ... use b ...
+}
+
+Q3. You have a Person* returned from person_create. You write:
+
+Person* copy = person;   // "copy" the person
+person_destroy(person);
+printf("%s\n", copy->name);  // use the copy
+
+What happens, and why? What would you need to do to make a real copy?
+
+Q4. Why does calloc(n, size) exist when malloc(n * size) does the same allocation? When would you specifically prefer calloc?

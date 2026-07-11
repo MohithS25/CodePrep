@@ -1,0 +1,122 @@
+Q1. What does this print, and why?
+char* a = "cat";
+char b[] = "cat";
+b[0] = 'b';
+printf("%s %s\n", a, b);    //will print "cat bat" since we are only changing char b[0]
+
+Q2. What's the difference between these two and which is safer?
+
+// Version A
+char buf[10];
+strcpy(buf, user_input);
+
+// Version B
+char buf[10];
+strncpy(buf, user_input, sizeof(buf) - 1);
+buf[sizeof(buf) - 1] = '\0';
+
+version B since it guarantees the copy to be of only sizeof(buf) and the copy doesn't overflow
+
+Q3. You call strlen(s) three times in a loop. What's the performance problem? How would you fix it in C?
+Is it that it scans the entire string 3 times. Maybe store the length in a variable and use it
+
+Q4. This code has a bug. Find it:
+
+char* make_greeting(const char* name) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "Hello, %s!", name);
+    return buf;
+}
+return a pointer to a local variable -> prints garbage value
+
+Exercise 1. Write int string_compare(const char* a, const char* b) from scratch — returns 0 if equal, negative if a < b, positive if a > b (same contract as strcmp). Test it with at least three cases: equal strings, a < b, a > b.
+
+#include <stdio.h>
+
+int string_compare(const char* a, const char* b){
+    while(*a != '\0' && *b != '\0'){
+        if(*a != *b){
+            return *a - *b;
+        }
+        a++;
+        b++;
+    }
+
+    return *a - *b;
+}
+
+int main(){
+    char a[] = "app";
+    char b[] = "apple";
+    char c[] = "kau";
+    printf("%d", string_compare(a , b));
+
+}
+
+Exercise 2. Write char* string_concat(const char* a, const char* b) that allocates exactly enough memory on the heap, copies both strings in, and returns the result. The caller is responsible for freeing it. Hint: you'll need malloc, and the size is strlen(a) + strlen(b) + 1.
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+char* string_concat(const char* a, const char* b){
+    int lena = strlen(a);
+    int lenb = strlen(b);
+
+    char* str =  malloc (lena + lenb + 1);
+    
+    int i = 0;
+    while(a[i] != '\0'){
+        str[i] = a[i];
+        i++;
+    }
+
+    int j = 0;
+    while(b[j] != '\0'){
+        str[i] = b[j];
+        j++;
+        i++;
+    }
+
+    str[i] = '\0';
+
+    return str;
+}
+
+
+int main(){
+    char* a = "moh";
+    char* b = "kau";
+    char* str = string_concat(a, b);
+    printf("%s", str);
+    free(str);
+
+}
+
+ Exercise 3. Write int count_words(const char* s) that counts words in a string where words are separated by spaces (assume no leading/trailing spaces, single spaces only). 
+Example: "hello world foo" → 3. Do not use strtok.
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int count_words(const char* s){
+    if(*s == '\0'){
+        return 0;
+    }
+    int count = 1;
+    while(*s != '\0'){
+        if (*s == ' '){
+            count++;
+        }
+        s++;
+    }
+    return count;
+}
+
+
+int main(){
+    char str[] = "hello world foo";
+    printf("%d\n", count_words(str));
+    char str2[] = "";
+    printf("%d", count_words(str2));
+}

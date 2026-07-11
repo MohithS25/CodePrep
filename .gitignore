@@ -8,5 +8,5 @@
 !.gitignore
 !*.s
 !*.txt
-
+!*.c
 

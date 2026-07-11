@@ -1,0 +1,117 @@
+Q1. You write this in C:
+struct Point { int x; int y; };
+
+void move(struct Point p, int dx, int dy) {
+    p.x += dx;
+    p.y += dy;
+}
+
+int main() {
+    struct Point origin = {0, 0};
+    move(origin, 5, 3);
+    // What is origin.x here?
+}
+What is origin.x after move()? Why? What would you have to do to actually modify origin inside move()?
+origin.x and origin.y will be 0 since it is passed as a copy and only its copy is modified in move() and to modify the actual origin we need to pass a reference to origin
+These are the modifications that need to be made
+void move(struct Point* p, int dx, int dy) {
+    p->x += dx;                // we need to pass the pointer to struct as argument but why are we using -> instead of .
+    p->y += dy;
+}
+in main:
+move(&origin, 5, 3);
+
+Q2. In C++, you can write:
+void print(int x)    { printf("%d\n", x); }
+void print(double x) { printf("%f\n", x); }
+This doesn't exist in C. How does the C standard library handle calling the right version of abs() for int vs float vs long?
+Do we use different names for the functions - I'm not sure
+
+Q3. A friend tells you "C is just C++ without classes." What's wrong with that statement? Name two things C has/lacks that meaningfully change how you write programs.
+C uses raw pointers vs C++ can use references, std::string is not present in C, no classes or objects - we use structs and functions
+
+Exercise 1. Write a C program that defines a struct Point with x and y (integers), writes a function translate that takes a pointer to a Point and two deltas and modifies the point in place, and a function print_point that prints it as (x, y). Call both from main.
+#include <stdio.h>
+
+struct Point { int x; int y; };
+
+void translate(struct Point* p, int x, int y) {
+    p->x += x;
+    p->y += y;
+}
+
+void print_point(struct Point* p){
+    printf("(%d, %d)", p->x, p->y);
+}
+
+int main() {
+    struct Point origin = {0, 0};
+    translate(&origin, 5, 3);
+    print_point(&origin);
+}
+
+Exercise 2. Write a C function int string_length(const char* s) that computes the length of a null-terminated string without using strlen. Then write void string_copy(char* dst, const char* src) that copies src into dst (including the null terminator). Test it in main with a literal string.
+
+#include <stdio.h>
+
+int string_length(const char* s){
+    int length = 0;
+    while(s[length] != '\0'){
+        length++;
+    }
+
+    return length;
+}
+
+void string_copy(char* dst, const char* src){
+    while (*src != '\0') {
+        *dst = *src;
+        dst++;
+        src++;
+    }
+    *dst = '\0';
+}
+
+int main(){
+    const char *original = "Hello, World!";
+    char copy[50];
+
+    string_copy(copy, original);
+
+    printf("Original string: %s\n", original);
+    printf("Copied string: %s\n", copy);
+    printf("Length of original string: %d\n", string_length(original));
+
+    return 0;
+}
+
+Exercise 3. The C standard library has qsort — a generic sort that works on any array type:
+void qsort(void* base, size_t nmemb, size_t size, int (*compar)(const void*, const void*));
+Write a comparator function for integers and use qsort to sort an array {5, 2, 8, 1, 9, 3}. Print the sorted result. (You'll need #include <stdlib.h> and #include <stdio.h>.)
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int compare(const void *a, const void *b) {
+    int num1 = *(const int *)a;
+    int num2 = *(const int *)b;
+
+    return num1 - num2;
+}
+
+int main() {
+    int arr[] = {5, 2, 8, 1, 9, 3};
+    int n = sizeof(arr) / sizeof(arr[0]);
+
+    // Sort the array
+    qsort(arr, n, sizeof(int), compare);
+
+    // Print the sorted array
+    printf("Sorted array: ");
+    for (int i = 0; i < n; i++) {
+        printf("%d ", arr[i]);
+    }
+    printf("\n");
+
+    return 0;
+}
