@@ -1,0 +1,19 @@
+If you want a project that strips away the reliance on files or helper libraries and focuses entirely on memory manipulation, raw pointer arithmetic, alignment, and fragmentation strategies, you should implement a Custom Heap Memory Allocator (your own version of malloc, calloc, realloc, and free).
+
+Writing a memory allocator is the ultimate rite of passage for understanding how memory actually works under the hood in C.
+
+C Challenge: Designing an Aligned Block Memory Allocator
+Objective
+Your goal is to implement a fixed-size, thread-safe memory arena allocator from scratch. Instead of using the system's malloc, your allocator will manage a large, pre-allocated pool of raw bytes (the "Arena") and hand out chunks of it to users when they call your custom allocation functions.
+
+The Architectural Rules & Tradeoffs
+1. Raw Pointer Arithmetic: You cannot use array indexing (buf[i]) inside the core management logic. You must navigate through the memory arena using raw char* pointer casting and step increments.
+2. Memory Alignment: Modern CPUs access memory much faster when data is aligned to natural word boundaries (typically 8 bytes on 64-bit systems). Your allocator must ensure that every single pointer it hands back to the user is perfectly aligned to an 8-byte boundary, even if the user requested an odd number like 3 or 11 bytes.
+3. Block Headers: To know how much memory to release when my_free(ptr) is called, you must prepend a hidden structural Header directly before the data pointer you give to the user.
+4. Fragmentation & Coalescing: When blocks are freed, they leave gaps. Your implementation must traverse the memory heap and combine ("coalesce") adjacent free blocks into a single larger block to prevent memory fragmentation.
+
+
+Core Lessons Taught by This Exercise
+1. The Hidden Overhead: You learn that allocating memory always costs more space than requested because the metadata header must ride along silently.
+2. The uintptr_t and char* Cast: C prevents scalar addition on void* pointers. To move an address forward by a precise number of raw bytes, you are forced to cast pointers to char* or uintptr_t.
+3. Internal vs External Fragmentation: You visually witness how choosing whether or not to "split" a block or "coalesce" a group of blocks alters how much data your memory heap can hold before generating an Out of Memory error.

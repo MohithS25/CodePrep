@@ -19,6 +19,6 @@ Shutdown: When logger_destroy is called in Async mode, you must carefully signal
 
 
 Code Defenses & Things to Watch Out For:
-The Dreaded Deadlock: Notice there are two distinct mutexes (stream_lock and queue_lock). Ensure that your logic never attempts to lock one while holding the other, or you risk an execution deadlock.
-The Spurious Wakeup: When parsing thread state changes with condition variables, always loop your structural evaluations inside a while loop, not an if block (while(count == 0) { pthread_cond_wait(...); }).
-The Final Drain: During destruction, an asynchronous logger must make sure the background worker prints every single log line left inside the queue array before exiting, ensuring zero data loss during a controlled restart.
+1. The Dreaded Deadlock: Notice there are two distinct mutexes (stream_lock and queue_lock). Ensure that your logic never attempts to lock one while holding the other, or you risk an execution deadlock.
+2. The Spurious Wakeup: When parsing thread state changes with condition variables, always loop your structural evaluations inside a while loop, not an if block (while(count == 0) { pthread_cond_wait(...); }).
+3. The Final Drain: During destruction, an asynchronous logger must make sure the background worker prints every single log line left inside the queue array before exiting, ensuring zero data loss during a controlled restart.

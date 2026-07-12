@@ -19,7 +19,7 @@ typedef struct {
 } LogEntry;
 
 struct Logger {
-    FILE* file_stream;
+    FILE* file_stream;                               //#file where log message written
     char* filepath;
     LogLevel min_level;
     LogMode mode;
@@ -65,14 +65,53 @@ Logger* logger_create(const char* filepath, LogLevel min_level, size_t max_file_
     logger->is_running = false;
 
     // TODO: Initialize both 'stream_lock' and 'queue_lock' mutexes.
+    if (pthread_mutex_init(&logger->stream_lock, NULL) != 0){
+        free(logger);
+        return NULL;
+    }
+    if (pthread_mutex_init(&logger->queue_lock, NULL) != 0){
+        pthread_mutex_destroy(&logger->stream_lock);
+        free(logger);
+        return NULL;
+    }
+
     // TODO: Initialize 'queue_not_empty' and 'queue_not_full' condition variables.
     // Clean up and return NULL if any initialization fails.
+    if (pthread_cond_init(&logger->queue_not_empty, NULL) != 0 ){
+        pthread_mutex_destroy(&logger->queue_lock);
+        pthread_mutex_destroy(&logger->stream_lock);
+        free(logger);
+        return NULL;
+    }
+
+    if (pthread_cond_init(&logger->queue_not_full, NULL) != 0 ){
+        pthread_cond_destroy(&logger->queue_not_empty);
+        pthread_mutex_destroy(&logger->queue_lock);
+        pthread_mutex_destroy(&logger->stream_lock);
+        free(logger);
+        return NULL;
+    }
 
     if (filepath) {
         logger->filepath = strdup(filepath);
+        if(!logger->filepath){
+            pthread_cond_destroy(&logger->queue_not_full);
+            pthread_cond_destroy(&logger->queue_not_empty);
+            pthread_mutex_destroy(&logger->queue_lock);
+            pthread_mutex_destroy(&logger->stream_lock);
+            free(logger);
+            return NULL;
+        }
         logger->file_stream = fopen(filepath, "a");
         if (!logger->file_stream) {
             // Clean up and return NULL
+            free(logger->filepath);
+            pthread_cond_destroy(&logger->queue_not_full);
+            pthread_cond_destroy(&logger->queue_not_empty);
+            pthread_mutex_destroy(&logger->queue_lock);
+            pthread_mutex_destroy(&logger->stream_lock);
+            free(logger);
+            return NULL;
         }
         // Optional: Seek to end and determine current file size to resume tracking
     } else {
@@ -85,9 +124,19 @@ Logger* logger_create(const char* filepath, LogLevel min_level, size_t max_file_
         if (pthread_create(&logger->worker_thread, NULL, async_worker_routine, logger) != 0) {
             logger->is_running = false;
             // TODO: Clean up resources and return NULL
+            if (logger->file_stream != stdout) {
+                fclose(logger->file_stream);
+            }
+            free(logger->filepath);
+            pthread_cond_destroy(&logger->queue_not_full);
+            pthread_cond_destroy(&logger->queue_not_empty);
+            pthread_mutex_destroy(&logger->queue_lock);
+            pthread_mutex_destroy(&logger->stream_lock);
+            free(logger);
+            return NULL;
         }
     }
-
+    printf("Logger created\n");
     return logger;
 }
 
@@ -97,23 +146,55 @@ void logger_destroy(Logger* logger) {
     if (logger->mode == LOG_MODE_ASYNC) {
         // TODO: Signal to the worker thread that it should stop running.
         // Remember to acquire queue_lock, set is_running to false, and broadcast condition signs.
+        pthread_mutex_lock(&logger->queue_lock);
         
+        logger->is_running = false;
+        pthread_cond_broadcast(&logger->queue_not_empty);
+        pthread_cond_broadcast(&logger->queue_not_full);
+        
+        pthread_mutex_unlock(&logger->queue_lock);
+
         // TODO: Join the worker thread to guarantee it finishes draining the remaining queue.
         pthread_join(logger->worker_thread, NULL);
     }
 
     // TODO: Destroy all mutexes and condition variables.
+    pthread_cond_destroy(&logger->queue_not_full);
+    pthread_cond_destroy(&logger->queue_not_empty);
+    pthread_mutex_destroy(&logger->queue_lock);
+    pthread_mutex_destroy(&logger->stream_lock);
     // TODO: Close file_stream safely (if it isn't stdout) and free filepath.
+    if (logger->file_stream != stdout) {
+        fclose(logger->file_stream);
+    }
+    free(logger->filepath);
     free(logger);
+
+    printf("Logger destroyed\n");
 }
 
 static void handle_rotation(Logger* logger) {
     if (!logger->filepath || logger->current_size < logger->max_size) return;
 
     // TODO: 1. Close current file_stream.
+    fclose(logger->file_stream);
     // TODO: 2. Construct a backup filename string (e.g., filepath + ".old").
+    size_t filepath_len = strlen(logger->filepath);
+    char backup_filepath[filepath_len + sizeof(".old")];
+    memcpy(backup_filepath, logger->filepath, filepath_len);
+    memcpy(backup_filepath + filepath_len, ".old", sizeof(".old"));
     // TODO: 3. Use rename() to overwrite or create the .old backup file.
+    if (rename(logger->filepath, backup_filepath) != 0) {
+        logger->file_stream = fopen(logger->filepath, "a");
+        return;
+    }
     // TODO: 4. Open a fresh file at original filepath in write mode, reset current_size.
+    logger->file_stream = fopen(logger->filepath, "w");
+    if (logger->file_stream != NULL) {
+        logger->current_size = 0;
+    }
+
+
 }
 
 // Low-level formatting logic used by either the calling thread (Sync) or worker thread (Async)
@@ -161,6 +242,31 @@ void logger_log(Logger* logger, LogLevel level, const char* file, int line, cons
         // 4. Push log data (level, file, line, formatted msg_buf, timestamp) into queue[tail].
         // 5. Update tail index (wrap around using modulo) and increment count.
         // 6. Signal 'queue_not_empty' condition and unlock queue_lock.
+        pthread_mutex_lock(&logger->queue_lock);
+
+        while(logger->count == ASYNC_QUEUE_CAPACITY && logger->is_running == true){
+            pthread_cond_wait(&logger->queue_not_full, &logger->queue_lock);
+        }
+        if (!logger->is_running) {
+            pthread_mutex_unlock(&logger->queue_lock);
+            return;
+        }
+
+        LogEntry* entry = &logger->queue[logger->tail];
+
+        entry->level = level;
+        entry->line = line;
+        entry->timestamp = now;
+
+        snprintf(entry->file, sizeof(entry->file), "%s", file);
+        snprintf(entry->message, sizeof(entry->message), "%s", msg_buf);
+
+        logger->tail = (logger->tail + 1) % ASYNC_QUEUE_CAPACITY;
+        logger->count++;
+
+        pthread_cond_signal(&logger->queue_not_empty);
+
+        pthread_mutex_unlock(&logger->queue_lock);
     }
 }
 
@@ -177,6 +283,21 @@ static void* async_worker_routine(void* arg) {
         // 3. If count > 0, extract item from queue[head], update head index, decrement count, 
         //    signal 'queue_not_full', and mark have_entry = true.
         // 4. Unlock queue_lock.
+        pthread_mutex_lock(&logger->queue_lock);
+        
+        while(logger->count == 0 && logger->is_running == true){
+            pthread_cond_wait(&logger->queue_not_empty, &logger->queue_lock);
+        }
+
+        if(logger->count > 0){
+            entry = logger->queue[logger->head];
+            logger->head = (logger->head + 1) % ASYNC_QUEUE_CAPACITY;
+            logger->count--;
+            pthread_cond_signal(&logger->queue_not_full);
+            have_entry = true;
+        }
+
+        pthread_mutex_unlock(&logger->queue_lock);
         
         // If queue was empty and logger stopped running, break loop to exit thread cleanly
         if (!logger->is_running && !have_entry) {
